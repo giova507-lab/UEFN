@@ -141,7 +141,7 @@ hud_view := class:
         SetLabel(HintLabel, Hint)
 
     # Relative bearing in degrees (-180..180, positive = right of camera).
-    ShowSonar(Name:string, Distance:string, Relative:float, MarkerColor:color):void =
+    ShowSonar(Name:string, DistanceText:string, Relative:float, MarkerColor:color):void =
         SonarRoot.SetVisibility(widget_visibility.Visible)
         Clamped := ClampF(Relative / 90.0, -1.0, 1.0)
         X := (SonarBarWidth - SonarMarkerSize) * (0.5 + 0.5 * Clamped)
@@ -149,7 +149,7 @@ hud_view := class:
         SonarMarker.SetColor(MarkerColor)
         SetLabel(SonarNameLabel, "SONAR: {Name}")
         Direction := if (Relative < -90.0) then "<< BEHIND YOU (LEFT)" else if (Relative > 90.0) then "BEHIND YOU (RIGHT) >>" else if (Relative < -12.0) then "<< LEFT" else if (Relative > 12.0) then "RIGHT >>" else "AHEAD"
-        SetLabel(SonarDistanceLabel, "{Distance}   {Direction}")
+        SetLabel(SonarDistanceLabel, "{DistanceText}   {Direction}")
 
     ShowSonarSearching(Name:string):void =
         SonarRoot.SetVisibility(widget_visibility.Visible)

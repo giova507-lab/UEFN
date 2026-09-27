@@ -28,8 +28,12 @@ EggWatchTickSeconds : float = 0.2
     MaxF(0.0, G.TideEndTime - G.GetNow())
 
 (G:sea_beast_game_device).PerformTideReset(Announce:logic):void =
-    # 1. Remove expired unclaimed eggs (tutorial eggs are personal and stay).
+    # 1. Remove expired unclaimed eggs. Tutorial eggs are personal and stay,
+    #    unless the player they were reserved for is gone.
     for (Egg : G.WorldEggs, Egg.Active?, not Egg.ReservedFor?):
+        set Egg.Active = false
+        G.RemoveEggVisual(Egg)
+    for (Egg : G.WorldEggs, Egg.Active?, Reserved := Egg.ReservedFor?, not G.Sessions[Reserved]):
         set Egg.Active = false
         G.RemoveEggVisual(Egg)
     set G.WorldEggs = for (Egg : G.WorldEggs, Egg.Active?). Egg
@@ -114,7 +118,11 @@ EggWatchTickSeconds : float = 0.2
         set G.WorldEggs += array{Egg}
         Asset : ?creative_prop_asset = if (A := G.GetEggPropAsset[EggID]) then option{A} else false
         Point.ShowEgg(UID, EggID, Asset)
-        if (RarityIndex(EggRarity(EggID)) >= RarityIndex(beast_rarity.Legendary)):
+        # A short surfacing burst for Legendary and Mythic eggs. Divine and
+        # Ethereal eggs get none: their location must stay secret.
+        # RareSpawnBeacon must be a one-shot (non-looping) effect.
+        Tier := RarityIndex(EggRarity(EggID))
+        if (Tier >= RarityIndex(beast_rarity.Legendary), Tier <= RarityIndex(beast_rarity.Mythic)):
             G.PlayVfxAt(vfx_key.RareSpawnBeacon, Egg.Position)
 
 (G:sea_beast_game_device).RemoveEggVisual(Egg:world_egg):void =
@@ -183,7 +191,7 @@ EggWatchTickSeconds : float = 0.2
     G.PlaySfx(Session, sfx_key.EggPickup)
     G.ShowToast(Session, "{EggName(Egg.EggTypeID)}  {FormatLuck(EggLuck(Egg.EggTypeID))}\nBRING IT HOME BEFORE IT CRACKS!", RarityColor(EggRarity(Egg.EggTypeID)))
     G.TrackFirst(Session, analytics_key.FirstEggFound)
-    G.OnTutorialEggClaimed(Session)
+    G.OnTutorialEggClaimed(Session, Egg.UID)
     G.OnWorldEggClaimed(Egg, Session)
     G.NotifyNearbyClaim(Egg, Session)
     if (RarityIndex(EggRarity(Egg.EggTypeID)) >= RarityIndex(beast_rarity.Mythic)):
@@ -204,11 +212,15 @@ EggWatchTickSeconds : float = 0.2
 
 # Where the player's egg reach is centered: the creature when riding.
 (G:sea_beast_game_device).GetPickupCenter(Session:player_session)<transacts><decides>:vector3 =
+    G.FindPickupCenter(Session)?
+
+(G:sea_beast_game_device).FindPickupCenter(Session:player_session)<transacts>:?vector3 =
     if (Session.Mount.State = mount_state.Mounted):
-        vector3{X := Session.Mount.PosX, Y := Session.Mount.PosY, Z := Session.Mount.PosZ}
+        option{vector3{X := Session.Mount.PosX, Y := Session.Mount.PosY, Z := Session.Mount.PosZ}}
+    else if (Character := Session.Player.GetFortCharacter[]):
+        option{Character.GetTransform().Translation}
     else:
-        Character := Session.Player.GetFortCharacter[]
-        Character.GetTransform().Translation
+        false
 
 (G:sea_beast_game_device).GetPickupRadius(Session:player_session)<transacts>:float =
     if (Session.Mount.State = mount_state.Mounted):

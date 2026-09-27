@@ -113,6 +113,71 @@ def collect_digest_names(digest_dir):
     return names
 
 
+DIGEST_ROOTS = {"Fortnite": "/Fortnite.com", "UnrealEngine": "/UnrealEngine.com", "Verse": "/Verse.org"}
+
+
+def collect_module_exports(digest_dir):
+    """Maps module import paths (e.g. /Verse.org/Simulation) to the names
+    defined directly in that module, which `using` brings into scope."""
+    exports = defaultdict(set)
+    if not digest_dir:
+        return exports
+    for fn in os.listdir(digest_dir):
+        if not fn.endswith(".verse"):
+            continue
+        root = next((v for k, v in DIGEST_ROOTS.items() if fn.startswith(k)), None)
+        if root is None:
+            continue
+        stack = []  # (indent, module path)
+        for raw in read(os.path.join(digest_dir, fn)).split("\n"):
+            s = raw.rstrip()
+            stripped = s.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            indent = len(s) - len(s.lstrip(" "))
+            # A line at (or left of) a module's own indentation - normally its
+            # closing brace - ends that module.
+            while stack and indent <= stack[-1][0]:
+                stack.pop()
+            if stripped.startswith("}"):
+                continue
+            m = re.match(r"^\s*(?:\(/[^)]*:\))?(" + IDENT + r")<public>\s*:=\s*module\s*\{", s)
+            if m:
+                parent = stack[-1][1] if stack else root
+                stack.append((indent, parent + "/" + m.group(1)))
+                continue
+            if stack and indent == stack[-1][0] + 2:
+                body = s.strip()
+                if body.startswith("(") and not body.startswith("(/"):
+                    continue  # extension method: not a bare name
+                mm = re.match(r"^(?:\(/[^)]*:\))?(" + IDENT + r")\s*<", body)
+                if mm:
+                    exports[stack[-1][1]].add(mm.group(1))
+    return exports
+
+
+def split_params(text):
+    """Parameter names from the text inside a signature's parentheses."""
+    names, depth, current = [], 0, ""
+    for c in text:
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+        if c == "," and depth == 0:
+            names.append(current)
+            current = ""
+        else:
+            current += c
+    names.append(current)
+    out = []
+    for part in names:
+        m = re.match(r"^\s*\??(" + IDENT + r")\s*:", part)
+        if m:
+            out.append(m.group(1))
+    return out
+
+
 class Project:
     def __init__(self, files):
         self.files = files
@@ -192,8 +257,52 @@ def check_member_collisions(project, report):
                 report(cls, 0, "class member '%s' has the same name as a module-level definition" % name)
 
 
-def check(project, digest_names, report):
+def check_shadowing(project, exports, report):
+    """Parameters, locals and loop variables may not reuse a name that is
+    already visible: module-level names of this project or names brought in
+    by the file's `using` statements."""
+    for path, text in project.files.items():
+        rel = os.path.basename(path)
+        usings = re.findall(r"using\s*\{\s*([^}]+?)\s*\}", text)
+        # /Verse.org/Verse is always in scope.
+        imported = set(exports.get("/Verse.org/Verse", set()))
+        for u in usings:
+            imported |= exports.get(u.strip(), set())
+        visible = project.module_names | imported
+        for lineno, raw in enumerate(text.split("\n"), 1):
+            line = strip_comments_and_strings(raw)
+            stripped = line.strip()
+            if not stripped:
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            candidates = []
+            # function / method parameters
+            sig = re.match(r"^(?:\(" + IDENT + r"\s*:\s*" + IDENT + r"\)\.)?" + IDENT + r"(?:<[a-z_]+>)*\s*\((.*)\)\s*(?:<[a-z_]+>)*\s*:[^=]*=", stripped)
+            if sig and indent in (0, 4):
+                candidates += split_params(sig.group(1))
+            # extension receiver name
+            rec = re.match(r"^\((" + IDENT + r")\s*:\s*" + IDENT + r"\)\.", stripped)
+            if rec and indent == 0:
+                candidates.append(rec.group(1))
+            # loop variables
+            for m in re.finditer(r"for\s*\((.*)\)", stripped):
+                for v in re.finditer(r"(?:^|,)\s*(?:(" + IDENT + r")\s*->\s*)?(" + IDENT + r")\s*(?::|:=)", m.group(1)):
+                    candidates += [n for n in v.groups() if n]
+            # locals inside bodies
+            if indent > 0:
+                loc = re.match(r"^(?:var\s+)?(" + IDENT + r")\s*(?::=|:\s*[\[\]?A-Za-z_(])", stripped)
+                if loc and not sig:
+                    candidates.append(loc.group(1))
+            for name in candidates:
+                if name in visible and name not in {"Game", "Self"} and name not in project.types:
+                    where = "an imported name" if name in imported and name not in project.module_names else "a module-level definition"
+                    report(rel, lineno, "'%s' shadows %s" % (name, where))
+
+
+def check(project, digest_names, report, exports=None):
     check_member_collisions(project, report)
+    if exports:
+        check_shadowing(project, exports, report)
     known_calls = project.module_names | digest_names | BUILTINS | project.types
     device_members = project.members["sea_beast_game_device"] | project.ext["sea_beast_game_device"]
     ui_members = project.members["player_ui_controller"] | project.ext["player_ui_controller"]
@@ -267,7 +376,7 @@ def check(project, digest_names, report):
                 if name in project.module_names and name not in {"Game"}:
                     report(rel, lineno, "local '%s' shadows a module-level definition" % name)
         for type_name, module in TYPE_MODULES.items():
-            if re.search(r"[:\s\(]" + type_name + r"\b", text):
+            if re.search(r"[:\s\(]" + type_name + r"\b", clean):
                 if not any(module in u for u in usings):
                     report(rel, 0, "uses type '%s' without a using for %s" % (type_name, module))
 
@@ -283,12 +392,13 @@ def main():
             files[os.path.join(args.source, fn)] = read(os.path.join(args.source, fn))
     project = Project(files)
     digest_names = collect_digest_names(args.digests)
+    exports = collect_module_exports(args.digests)
     findings = []
 
     def report(file, line, message):
         findings.append((file, line, message))
 
-    check(project, digest_names, report)
+    check(project, digest_names, report, exports)
     for f, l, m in findings:
         print("%s:%d: %s" % (f, l, m))
     print("%d finding(s) in %d file(s)" % (len(findings), len(files)))

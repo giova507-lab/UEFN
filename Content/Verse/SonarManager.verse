@@ -75,7 +75,11 @@ RollSonarStock()<transacts>:[]int =
     Session.Profile.SonarAutoBuy[Tier]?
 
 (G:sea_beast_game_device).ToggleSonarAutoBuy(Session:player_session, Tier:int):void =
-    if (Def := GetSonarDef[Tier]):
+    if (SharedSonarStock?):
+        # With one shared stock, auto-buy would let the first player in the
+        # list take everything at every restock, so it is per-player only.
+        G.ShowToast(Session, "AUTO-BUY IS NOT AVAILABLE WITH SHARED SHOP STOCK.", ThemeMuted)
+    else if (Def := GetSonarDef[Tier]):
         NewValue := if (G.IsSonarAutoBuyOn[Session, Tier]) then false else true
         if (set Session.Profile.SonarAutoBuy[Tier] = NewValue) {}
         StateText := if (NewValue?) then "ON" else "OFF"
@@ -89,6 +93,8 @@ RollSonarStock()<transacts>:[]int =
 # Buys the available stock of every tier with AUTO-BUY on, while the player
 # can afford it. Runs on every restock and when a tier is switched on.
 (G:sea_beast_game_device).RunSonarAutoBuy(Session:player_session):void =
+    if (SharedSonarStock?):
+        return
     var BoughtTotal : int = 0
     for (Tier -> Enabled : Session.Profile.SonarAutoBuy, Enabled?, Def := GetSonarDef[Tier]):
         var Bought : int = 0

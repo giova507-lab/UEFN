@@ -30,10 +30,12 @@ using { /Verse.org/Simulation }
         set Total += CreatureIncomePerSecond(C)
     Total
 
+# IncludeTemporary = false gives the offline-income rate: no weather bonus and
+# no party bonus (both require being on the server).
 (G:sea_beast_game_device).ComputeIncomePerSecond(Session:player_session, IncludeTemporary:logic)<transacts>:float =
     Base := G.ComputeBaseIncome(Session)
     Permanent := Session.Profile.PermanentMoneyMultiplier
-    Friend := 1.0 + Session.FriendBoost
+    Friend := if (IncludeTemporary?) then 1.0 + Session.FriendBoost else 1.0
     EventModifier := if (IncludeTemporary?) then G.CurrentIncomeModifier() else 1.0
     Base * Permanent * Friend * EventModifier
 

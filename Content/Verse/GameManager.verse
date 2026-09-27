@@ -119,39 +119,45 @@ sea_beast_game_device := class(creative_device):
     OnBegin<override>()<suspends>:void =
         LogSea("RIDE A SEA BEAST - starting")
         ValidateConfiguration()
-        InitLagoons()
-        InitMountRigs()
-        InitAudioVisual()
-        InitDayNight()
+        Self.InitLagoons()
+        Self.InitMountRigs()
+        Self.InitAudioVisual()
+        Self.InitDayNight()
         # Let self-registering devices (spawn points, zones, stations) finish.
         Sleep(RegistrySettleSeconds)
         InitRegistryDevices()
-        InitSonarStock()
+        Self.InitSonarStock()
         Playspace := GetPlayspace()
-        Playspace.PlayerAddedEvent().Subscribe(OnPlayerAdded)
-        Playspace.PlayerRemovedEvent().Subscribe(OnPlayerRemoved)
+        Playspace.PlayerAddedEvent().Subscribe(HandlePlayerAdded)
+        Playspace.PlayerRemovedEvent().Subscribe(HandlePlayerRemoved)
         for (Spawner : PlayerSpawners):
-            Spawner.SpawnedEvent.Subscribe(OnPlayerSpawned)
+            Spawner.SpawnedEvent.Subscribe(HandlePlayerSpawned)
         for (Player : Playspace.GetPlayers()):
-            OnPlayerAdded(Player)
+            Self.OnPlayerAdded(Player)
         set Started = true
-        spawn{ RunTideLoop() }
-        spawn{ RunEconomyLoop() }
-        spawn{ RunIncubationLoop() }
-        spawn{ RunEggWatchLoop() }
-        spawn{ RunSonarLoop() }
-        spawn{ RunSonarRestockLoop() }
-        spawn{ RunWeatherLoop() }
-        spawn{ RunDayNightLoop() }
-        spawn{ RunAutosaveLoop() }
-        spawn{ RunHudLoop() }
-        spawn{ RunWorldWatchLoop() }
+        spawn{ Self.RunTideLoop() }
+        spawn{ Self.RunEconomyLoop() }
+        spawn{ Self.RunIncubationLoop() }
+        spawn{ Self.RunEggWatchLoop() }
+        spawn{ Self.RunSonarLoop() }
+        spawn{ Self.RunSonarRestockLoop() }
+        spawn{ Self.RunWeatherLoop() }
+        spawn{ Self.RunDayNightLoop() }
+        spawn{ Self.RunAutosaveLoop() }
+        spawn{ Self.RunHudLoop() }
+        spawn{ Self.RunWorldWatchLoop() }
         LogSea("RIDE A SEA BEAST - running")
 
     OnEnd<override>():void =
         # Best-effort final save while players are still valid.
         for (Player -> Session : Sessions, Player.IsActive[]):
-            SaveSession(Session)
+            Self.SaveSession(Session)
+
+    # Event callbacks are class methods that forward to the subsystems'
+    # extension methods (PlayerManager.verse).
+    HandlePlayerAdded(Player:player):void = Self.OnPlayerAdded(Player)
+    HandlePlayerRemoved(Player:player):void = Self.OnPlayerRemoved(Player)
+    HandlePlayerSpawned(Agent:agent):void = Self.OnPlayerSpawned(Agent)
 
     # Reads self-registered level devices and binds them to this game.
     InitRegistryDevices():void =
@@ -172,6 +178,8 @@ sea_beast_game_device := class(creative_device):
             LogSeaWarning("Expected {LagoonCount} Lagoons on the game device, found {Lagoons.Length}.")
         if (MountRigs.Length < Lagoons.Length):
             LogSeaWarning("Each Lagoon needs a mount rig: {MountRigs.Length} rigs for {Lagoons.Length} Lagoons.")
+        for (I -> Lagoon : Lagoons, Lagoon.Incubators.Length < IncubatorsPerLagoon):
+            LogSeaWarning("Lagoon {I + 1} has {Lagoon.Incubators.Length} incubators; {IncubatorsPerLagoon} are expected (extra saved eggs wait until a pad exists).")
         for (I -> Def : CreatureDefs, Def.ID <> I + 1):
             LogSeaWarning("CreatureDefs: entry {I} has ID {Def.ID}; IDs must equal index + 1.")
         for (I -> Def : EggDefs, Def.ID <> I + 1):

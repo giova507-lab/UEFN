@@ -21,7 +21,7 @@ TutorialPollSeconds : float = 0.5
 
 (G:sea_beast_game_device).StartTutorialIfNeeded(Session:player_session):void =
     P := Session.Profile
-    if (not P.TutorialComplete?, not Session.TutorialTaskRunning?):
+    if (Session.Loaded?, not P.TutorialComplete?, not Session.TutorialTaskRunning?):
         if (P.TutorialStep = 0):
             G.TrackFirst(Session, analytics_key.TutorialStarted)
         spawn{ G.RunTutorial(Session) }
@@ -40,7 +40,7 @@ TutorialPollSeconds : float = 0.5
     set Session.TutorialTaskRunning = true
     P := Session.Profile
     loop:
-        if (not G.Sessions[Session.Player]):
+        if (not Session.Loaded? or not G.Sessions[Session.Player]):
             break
         Step := TutorialStepFromIndex(P.TutorialStep)
         if (Step = tutorial_step.Done):
@@ -85,8 +85,10 @@ TutorialPollSeconds : float = 0.5
                 Sleep(TutorialPollSeconds)
         else:
             Sleep(TutorialPollSeconds)
-    if (TutorialStepFromIndex(P.TutorialStep) = tutorial_step.Done, not P.TutorialComplete?):
+    if (Session.Loaded?, TutorialStepFromIndex(P.TutorialStep) = tutorial_step.Done, not P.TutorialComplete?):
         set P.TutorialComplete = true
+        # A personal tutorial egg that was never picked up is removed.
+        G.ReleaseTutorialEgg(Session)
         G.TrackFirst(Session, analytics_key.TutorialComplete)
         Session.UI.HideTutorial()
         G.ShowToast(Session, "TUTORIAL COMPLETE! VISIT MARINA'S CURRENT TRACKER AND FINN'S SONAR SHACK.", ThemeGold)
@@ -95,8 +97,10 @@ TutorialPollSeconds : float = 0.5
 
 # Event nudges from other systems (the tutorial loop also polls, so these
 # only make the response feel instant).
-(G:sea_beast_game_device).OnTutorialEggClaimed(Session:player_session):void =
-    if (not Session.Profile.TutorialComplete?):
+# Only the personal tutorial egg itself clears the reference; picking up a
+# public egg leaves the tutorial egg tracked so it can still be released.
+(G:sea_beast_game_device).OnTutorialEggClaimed(Session:player_session, EggUID:int):void =
+    if (EggUID = Session.TutorialEggUID):
         set Session.TutorialEggUID = 0
 
 (G:sea_beast_game_device).OnTutorialEggSecured(Session:player_session):void = {}

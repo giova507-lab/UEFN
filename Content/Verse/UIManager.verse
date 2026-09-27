@@ -194,8 +194,8 @@ player_ui_controller := class:
 
     HideTutorial():void = Hud.HideTutorial()
 
-    ShowSonar(Name:string, Distance:string, Relative:float, MarkerColor:color):void =
-        Hud.ShowSonar(Name, Distance, Relative, MarkerColor)
+    ShowSonar(Name:string, DistanceText:string, Relative:float, MarkerColor:color):void =
+        Hud.ShowSonar(Name, DistanceText, Relative, MarkerColor)
 
     ShowSonarSearching(Name:string):void = Hud.ShowSonarSearching(Name)
     HideSonar():void = Hud.HideSonar()
@@ -220,7 +220,7 @@ player_ui_controller := class:
         if (Screen = menu_screen.Debug and not Game.IsDeveloperSession[]):
             return
         if (not MenuBuilt?):
-            BuildMenus()
+            Self.BuildMenus()
         set OpenScreen = Screen
         IsStation := logic{Screen = menu_screen.Tracker or Screen = menu_screen.SonarShop or Screen = menu_screen.FeedDock or Screen = menu_screen.Trader}
         ShowWidget(TabRow, if (IsStation?) then false else true)
@@ -252,27 +252,27 @@ player_ui_controller := class:
         if (not MenuAdded?):
             return
         if (OpenScreen = menu_screen.SeaBeasts):
-            RefreshSeaBeasts()
+            Self.RefreshSeaBeasts()
         else if (OpenScreen = menu_screen.OceanIndex):
-            RefreshIndex()
+            Self.RefreshIndex()
         else if (OpenScreen = menu_screen.DeepDive):
-            RefreshDeepDive()
+            Self.RefreshDeepDive()
         else if (OpenScreen = menu_screen.Settings):
-            RefreshSettings()
+            Self.RefreshSettings()
         else if (OpenScreen = menu_screen.Tracker):
-            RefreshTracker()
+            Self.RefreshTracker()
         else if (OpenScreen = menu_screen.SonarShop):
-            RefreshSonarShop()
+            Self.RefreshSonarShop()
         else if (OpenScreen = menu_screen.FeedDock):
-            RefreshFeedDock()
+            Self.RefreshFeedDock()
         else if (OpenScreen = menu_screen.Trader):
-            RefreshTrader()
+            Self.RefreshTrader()
         else if (OpenScreen = menu_screen.Debug):
-            RefreshDebug()
+            Self.RefreshDebug()
 
     RefreshTrackerIfOpen():void =
         if (OpenScreen = menu_screen.Tracker):
-            RefreshTracker()
+            Self.RefreshTracker()
 
     RefreshStationTimers():void =
         if (OpenScreen = menu_screen.Tracker):
@@ -291,22 +291,22 @@ player_ui_controller := class:
                 ui_action.SetFilter =>
                     set Filter = FilterFromIndex(Arg)
                     set Page = 0
-                    RefreshSeaBeasts()
+                    Self.RefreshSeaBeasts()
                 ui_action.SetSort =>
                     set Sort = SortFromIndex(Arg)
                     set Page = 0
-                    RefreshSeaBeasts()
+                    Self.RefreshSeaBeasts()
                 ui_action.PrevPage =>
                     set Page = Max(0, Page - 1)
-                    RefreshSeaBeasts()
+                    Self.RefreshSeaBeasts()
                 ui_action.NextPage =>
                     set Page += 1
-                    RefreshSeaBeasts()
+                    Self.RefreshSeaBeasts()
                 ui_action.SelectCard =>
                     if (UID := VisibleUIDs[Arg]):
                         set SelectedUID = UID
                         Game.PlaySfx(Session, sfx_key.UIClick)
-                        RefreshSeaBeasts()
+                        Self.RefreshSeaBeasts()
                 ui_action.Ride =>
                     if (SelectedUID > 0):
                         CloseMenu()
@@ -319,10 +319,10 @@ player_ui_controller := class:
                 ui_action.Feed => Game.FeedCreature(Session, SelectedUID, SelectedFood)
                 ui_action.PrevFood =>
                     set SelectedFood = ModInt(SelectedFood - 1 + FoodCount, FoodCount)
-                    RefreshSeaBeasts()
+                    Self.RefreshSeaBeasts()
                 ui_action.NextFood =>
                     set SelectedFood = ModInt(SelectedFood + 1, FoodCount)
-                    RefreshSeaBeasts()
+                    Self.RefreshSeaBeasts()
                 ui_action.ToggleFavorite => Game.ToggleFavorite(Session, SelectedUID)
                 ui_action.ToggleLock => Game.ToggleLock(Session, SelectedUID)
                 ui_action.Sell => Game.RequestSell(Session, SelectedUID)
@@ -330,26 +330,26 @@ player_ui_controller := class:
                 ui_action.SetIndexTab =>
                     set IndexTab = IndexTabFromIndex(Arg)
                     set IndexPage = 0
-                    RefreshIndex()
+                    Self.RefreshIndex()
                 ui_action.IndexPrev =>
                     set IndexPage = Max(0, IndexPage - 1)
-                    RefreshIndex()
+                    Self.RefreshIndex()
                 ui_action.IndexNext =>
                     set IndexPage += 1
-                    RefreshIndex()
+                    Self.RefreshIndex()
                 ui_action.ClaimMilestone => Game.ClaimMilestone(Session, Arg)
                 ui_action.DoDeepDive => Game.RequestDeepDive(Session)
                 ui_action.ToggleSetting => ToggleSetting(Session, Arg)
                 ui_action.SetTrackerSort =>
                     set TrackerSort = TrackerSortFromIndex(Arg)
                     set TrackerPage = 0
-                    RefreshTracker()
+                    Self.RefreshTracker()
                 ui_action.TrackerPrev =>
                     set TrackerPage = Max(0, TrackerPage - 1)
-                    RefreshTracker()
+                    Self.RefreshTracker()
                 ui_action.TrackerNext =>
                     set TrackerPage += 1
-                    RefreshTracker()
+                    Self.RefreshTracker()
                 ui_action.BuySonar => Game.BuySonar(Session, Arg)
                 ui_action.UseSonar => Game.ActivateSonar(Session, Arg)
                 ui_action.ToggleSonarAutoBuy => Game.ToggleSonarAutoBuy(Session, Arg)
@@ -360,35 +360,35 @@ player_ui_controller := class:
                         Game.RequestSell(Session, UID)
                 ui_action.TraderPrev =>
                     set TraderPage = Max(0, TraderPage - 1)
-                    RefreshTrader()
+                    Self.RefreshTrader()
                 ui_action.TraderNext =>
                     set TraderPage += 1
-                    RefreshTrader()
+                    Self.RefreshTrader()
                 ui_action.SellDuplicates => Game.RequestSellAllDuplicates(Session)
                 ui_action.ConfirmYes => OnConfirm(Session, true)
                 ui_action.ConfirmNo => OnConfirm(Session, false)
                 ui_action.ClaimOffline =>
-                    ClosePopup()
+                    Self.ClosePopup()
                     Game.ClaimOfflineReward(Session)
                 ui_action.Skip => SkipRequested.Signal()
                 ui_action.DebugPrevCommand =>
                     set DebugCommandIndex = ModInt(DebugCommandIndex - 1 + DebugCommandCount, DebugCommandCount)
-                    RefreshDebug()
+                    Self.RefreshDebug()
                 ui_action.DebugNextCommand =>
                     set DebugCommandIndex = ModInt(DebugCommandIndex + 1, DebugCommandCount)
-                    RefreshDebug()
+                    Self.RefreshDebug()
                 ui_action.DebugArgMinus =>
                     set DebugArg -= 1
-                    RefreshDebug()
+                    Self.RefreshDebug()
                 ui_action.DebugArgPlus =>
                     set DebugArg += 1
-                    RefreshDebug()
+                    Self.RefreshDebug()
                 ui_action.DebugArgMinus10 =>
                     set DebugArg -= 10
-                    RefreshDebug()
+                    Self.RefreshDebug()
                 ui_action.DebugArgPlus10 =>
                     set DebugArg += 10
-                    RefreshDebug()
+                    Self.RefreshDebug()
                 ui_action.DebugExecute => Game.ExecuteDebugCommand(Session, DebugCommandFromIndex(DebugCommandIndex), DebugArg)
                 ui_action.Dismount =>
                     CloseMenu()
@@ -417,13 +417,13 @@ player_ui_controller := class:
         else if (Index = 6):
             set P.ThrottleToggle = if (P.ThrottleToggle?) then false else true
             set Session.CruiseOn = false
-        RefreshSettings()
+        Self.RefreshSettings()
         Game.SaveSession(Session)
 
     OnConfirm(Session:player_session, Accepted:logic):void =
         Action := PendingConfirm
         set PendingConfirm = confirm_action.None
-        ClosePopup()
+        Self.ClosePopup()
         if (Accepted?):
             if (Action = confirm_action.SellRequired):
                 Game.ConfirmPendingSell(Session)

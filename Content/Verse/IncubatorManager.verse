@@ -9,16 +9,25 @@ using { /Verse.org/Simulation }
 
 IncubationTickSeconds : float = 1.0
 
+# Incubators that exist both in the profile and as pads in the player's Lagoon.
+(G:sea_beast_game_device).UsableIncubatorCount(Session:player_session)<transacts>:int =
+    if (Lagoon := G.GetLagoonForSession[Session]) then Min(Lagoon.Incubators.Length, Session.Profile.Incubators.Length) else 0
+
+# First empty incubator. The one playing a hatch sequence counts as busy, so
+# a newly delivered egg can never be placed under a running cinematic.
 (G:sea_beast_game_device).FirstEmptyIncubator(Session:player_session)<transacts><decides>:int =
+    Usable := G.UsableIncubatorCount(Session)
     var Found : int = -1
-    for (I -> Incubator : Session.Profile.Incubators, Found < 0, Incubator.EggTypeID = 0):
+    for (I -> Incubator : Session.Profile.Incubators, Found < 0, I < Usable, I <> Session.HatchingIncubator, Incubator.EggTypeID = 0):
         set Found = I
     Found >= 0
     Found
 
 (G:sea_beast_game_device).OnIncubatorInteracted(LagoonIndex:int, Index:int, Agent:agent):void =
     if (Session := G.ValidateLagoonAction[LagoonIndex, Agent]):
-        if (Incubator := Session.Profile.Incubators[Index]):
+        if (Index = Session.HatchingIncubator):
+            G.ShowToast(Session, "HATCHING...", ThemeMuted)
+        else if (Incubator := Session.Profile.Incubators[Index]):
             if (Incubator.EggTypeID = 0):
                 if (Carried := Session.Carried[0]):
                     G.SecureCarriedEgg(Session, Carried, Index)
@@ -47,14 +56,9 @@ IncubationTickSeconds : float = 1.0
 (G:sea_beast_game_device).ShowIncubatorEggVisual(Session:player_session, Index:int):void =
     if (Lagoon := G.GetLagoonForSession[Session], Incubator := Session.Profile.Incubators[Index]):
         if (Incubator.EggTypeID > 0, Asset := G.GetEggPropAsset[Incubator.EggTypeID]):
-            spawn{ G.ShowIncubatorEggAsync(Lagoon, Index, Asset, logic{Incubator.IsReady[]}) }
+            spawn{ Lagoon.ShowIncubatorEgg(Index, Asset, logic{Incubator.IsReady[]}) }
         else:
             Lagoon.HideIncubatorEgg(Index)
-
-(G:sea_beast_game_device).ShowIncubatorEggAsync(Lagoon:lagoon_device, Index:int, Asset:creative_prop_asset, Ready:logic)<suspends>:void =
-    Lagoon.ShowIncubatorEgg(Index, Asset)
-    if (Ready?):
-        Lagoon.SetIncubatorReady(Index, true)
 
 # Re-creates incubator eggs and signs (join, Deep Dive, dev reset).
 (G:sea_beast_game_device).RestoreIncubatorVisuals(Session:player_session):void =
@@ -64,7 +68,10 @@ IncubationTickSeconds : float = 1.0
 
 (G:sea_beast_game_device).UpdateIncubatorSign(Session:player_session, Index:int):void =
     if (Lagoon := G.GetLagoonForSession[Session], Incubator := Session.Profile.Incubators[Index]):
-        if (Incubator.EggTypeID = 0):
+        if (Index = Session.HatchingIncubator):
+            Lagoon.SetIncubatorTimer(Index, "HATCHING!")
+            Lagoon.SetIncubatorPrompt(Index, HatchingPrompt)
+        else if (Incubator.EggTypeID = 0):
             Lagoon.SetIncubatorTimer(Index, "EMPTY")
             Lagoon.SetIncubatorPrompt(Index, PlaceEggPrompt)
         else if (Incubator.IsReady[]):

@@ -129,6 +129,8 @@ player_session := class:
     var PendingSellUID : int = 0
     # ---- Carried egg VFX currently shown (rarity index, -1 none) ----
     var CarryEffectRarity : int = -1
+    # ---- Last "all incubators full" warning (throttles the toast) ----
+    var LastFullIncubatorWarning : float = -100.0
 
 # Result of a hatch roll.
 hatch_result := struct:

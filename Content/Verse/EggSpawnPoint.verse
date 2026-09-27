@@ -143,6 +143,10 @@ egg_spawn_point_device := class(creative_device):
             if (Spawned := Result(0)?):
                 set SpawnedProp = option{Spawned}
                 StartBob(Spawned)
+            else:
+                # Usually the spawned-prop limit: the egg stays claimable but
+                # invisible. Use PlacedEggProps for common eggs (PERFORMANCE.md).
+                LogSeaWarning("Egg spawn point could not spawn the egg prop for egg {ActiveEggID} (spawned-prop limit?).")
             set PendingAsset = false
 
     GetRandomYaw()<transacts>:float = GetRandomFloat(0.0, 360.0)

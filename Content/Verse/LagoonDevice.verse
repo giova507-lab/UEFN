@@ -113,10 +113,14 @@ lagoon_device := class(creative_device):
     var DisplayProps : []creative_prop = array{}
     var ActiveAuraKeys : []int = array{}
     var IncubatorProps : []?creative_prop = array{}
+    # Per incubator: bumped on every show/hide so a slow spawn that finishes
+    # after the slot changed is discarded instead of leaking a prop.
+    var IncubatorGenerations : []int = array{}
     var DisplayGeneration : int = 0
 
     OnBegin<override>()<suspends>:void =
         set IncubatorProps = for (I := 0..Incubators.Length - 1). EmptyPropSlot()
+        set IncubatorGenerations = for (I := 0..Incubators.Length - 1). 0
         for (I -> Setup : Incubators):
             Handler := incubator_button_handler{Lagoon := Self, Index := I}
             Setup.Button.InteractedWithEvent.Subscribe(Handler.OnPressed)
@@ -313,15 +317,28 @@ lagoon_device := class(creative_device):
         else:
             transform{Translation := GetCenter(), Rotation := IdentityRotation(), Scale := vector3{X := 1.0, Y := 1.0, Z := 1.0}}
 
-    ShowIncubatorEgg(Index:int, Asset:creative_prop_asset)<suspends>:void =
+    GetIncubatorGeneration(Index:int)<transacts>:int =
+        if (Current := IncubatorGenerations[Index]) then Current else 0
+
+    BumpIncubatorGeneration(Index:int)<transacts>:void =
+        if (set IncubatorGenerations[Index] = GetIncubatorGeneration(Index) + 1) {}
+
+    ShowIncubatorEgg(Index:int, Asset:creative_prop_asset, Ready:logic)<suspends>:void =
         HideIncubatorEgg(Index)
+        MyGeneration := GetIncubatorGeneration(Index)
         if (Index >= 0, Index < Incubators.Length):
             MaybeProp := SpawnPropAsync(Asset, IncubatorEggTransform(Index))
             if (Prop := MaybeProp?):
-                if (set IncubatorProps[Index] = option{Prop}) {}
-                StartIncubatorWobble(Prop, 3.0)
+                if (GetIncubatorGeneration(Index) = MyGeneration, set IncubatorProps[Index] = option{Prop}):
+                    StartIncubatorWobble(Prop, 3.0)
+                    if (Ready?):
+                        SetIncubatorReady(Index, true)
+                else:
+                    # The slot was hidden or refilled while this was spawning.
+                    Prop.Dispose()
 
     HideIncubatorEgg(Index:int):void =
+        BumpIncubatorGeneration(Index)
         if (Existing := IncubatorProps[Index]?):
             if (Existing.IsValid[]):
                 Existing.Dispose()
@@ -387,8 +404,11 @@ lagoon_device := class(creative_device):
         MaybeProp := SpawnPropAsync(Asset, SpawnAt)
         if (Prop := MaybeProp?):
             Lifted := Base + vector3{X := 0.0, Y := 0.0, Z := 140.0}
+            # One full turn in 120-degree steps (rotations interpolate along
+            # the shortest path, so a single +360 step would not spin).
             Prop.MoveTo(transform{Translation := Lifted, Rotation := MakeRotationFromYawPitchRollDegrees(FacingYaw + 120.0, 0.0, 0.0), Scale := FullScale}, 0.5)
-            Prop.MoveTo(transform{Translation := Lifted, Rotation := MakeRotationFromYawPitchRollDegrees(FacingYaw + 360.0, 0.0, 0.0), Scale := FullScale}, 1.6)
+            Prop.MoveTo(transform{Translation := Lifted, Rotation := MakeRotationFromYawPitchRollDegrees(FacingYaw + 240.0, 0.0, 0.0), Scale := FullScale}, 0.8)
+            Prop.MoveTo(transform{Translation := Lifted, Rotation := MakeRotationFromYawPitchRollDegrees(FacingYaw + 360.0, 0.0, 0.0), Scale := FullScale}, 0.8)
             Sleep(1.4)
             if (Prop.IsValid[]):
                 Prop.Dispose()
@@ -427,4 +447,5 @@ lagoon_device := class(creative_device):
             HideIncubatorEgg(I)
             SetIncubatorTimer(I, "")
             SetIncubatorPrompt(I, EmptyIncubatorPrompt)
+        HatchLuckButton.SetInteractionText(HatchLuckIdlePrompt)
         SetOwnerSign(false, "")

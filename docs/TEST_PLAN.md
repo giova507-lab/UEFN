@@ -163,7 +163,10 @@ Use DEV → GIVE CREATURE for IDs 1-30 and ride each one.
 | K6 | Buy with insufficient cash | Refused, with the correct message. |
 | K7 | DEV panel in a Live session | Not visible. Commands are refused even if called. |
 | K8 | Eliminated or fell off the map | Respawns at their own Lagoon; any carried egg is lost. |
-| K9 | Leave during a hatch or dive | No loss, no duplication. |
+| K9 | Leave during a hatch or dive | No loss, no duplication. If the Lagoon is reassigned right away, the new owner's Lagoon is untouched. |
+| K10 | Deliver an egg while a hatch cinematic plays | The egg goes to another free incubator, never the hatching one. With none free, "ALL INCUBATORS ARE FULL!" appears at most every 6 s. |
+| K11 | Own 300 Sea Beasts, then hatch | Refused with "YOUR COLLECTION IS FULL…"; the egg stays ready in the incubator. |
+| K12 | New player picks up a public egg during the tutorial | The tutorial continues. Their personal tutorial egg is removed when the tutorial completes or when they leave. |
 
 ## L. Performance
 

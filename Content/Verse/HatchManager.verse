@@ -38,6 +38,11 @@ RollCreatureFromEgg(EggID:int, HatchLuck:float, MinCreatureID:int)<transacts>:in
         G.ShowToast(Session, "ALREADY HATCHING!", ThemeMuted)
         return
     P := Session.Profile
+    # Keeps the save within the per-player persistence budget.
+    if (P.Creatures.Length >= MaxCreatureInventory):
+        G.ShowToast(Session, "YOUR COLLECTION IS FULL ({MaxCreatureInventory} SEA BEASTS)! SELL SOME AT THE HARBOR TRADER.", ThemeWarning)
+        G.PlaySfx(Session, sfx_key.Error)
+        return
     if (Incubator := P.Incubators[Index], Incubator.IsReady[]):
         EggID := Incubator.EggTypeID
         IsFirst := logic{P.TotalHatches = 0}
@@ -55,7 +60,15 @@ RollCreatureFromEgg(EggID:int, HatchLuck:float, MinCreatureID:int)<transacts>:in
         G.TrackHatchAnalytics(Session, TypeID)
         G.SaveSession(Session)
         set Session.HatchingIncubator = Index
+        G.UpdateIncubatorSign(Session, Index)
         spawn{ G.RunHatchSequence(Session, Index, NewCreature, IsNew) }
+
+# Completes when the player leaves (their session is unloaded).
+(G:sea_beast_game_device).AwaitSessionEnd(Session:player_session)<suspends>:void =
+    loop:
+        if (not Session.Loaded?):
+            break
+        Sleep(0.25)
 
 (G:sea_beast_game_device).TrackHatchAnalytics(Session:player_session, TypeID:int):void =
     G.TrackFirst(Session, analytics_key.FirstHatch)
@@ -114,16 +127,26 @@ RollCreatureFromEgg(EggID:int, HatchLuck:float, MinCreatureID:int)<transacts>:in
                         Session.UI.SkipRequested.Await()
                     else:
                         Sleep(1000000.0)
-            Lagoon.BurstIncubatorEgg(Index)
+                # Stop at once if the player leaves: their Lagoon may be
+                # handed to someone else.
+                G.AwaitSessionEnd(Session)
             Lagoon.ReleaseHatchCamera(Session.Player)
-            Session.UI.HideHatchOverlay()
-            set P.SeenHatchCinematic = true
+            if (Session.Loaded?):
+                Lagoon.BurstIncubatorEgg(Index)
+                Session.UI.HideHatchOverlay()
+                set P.SeenHatchCinematic = true
         else:
             Lagoon.BurstIncubatorEgg(Index)
             G.PlayVfxAt(HatchVfxForRarity(R), EggPosition)
             G.PlaySfx(Session, HatchSfxForRarity(R))
+            if (Tier >= RarityIndex(beast_rarity.Legendary)):
+                G.PlayCameraShake(Session, logic{Tier >= RarityIndex(beast_rarity.Divine)})
             Session.UI.ShowHatchResultToast(NewCreature, IsNew)
     set Session.HatchingIncubator = -1
+    if (not Session.Loaded?):
+        return
+    # Restores the incubator's visual (normally empty now).
+    G.ShowIncubatorEggVisual(Session, Index)
     G.UpdateIncubatorSign(Session, Index)
     G.RefreshLagoon(Session)
     G.RefreshHud(Session)

@@ -23,7 +23,7 @@ using { /Verse.org/Simulation }
         return
     Now := GetSecondsSinceEpoch()
     set Session.Profile.LastSeenEpoch = Now
-    # Offline income uses permanent multipliers only (no weather bonuses).
+    # Offline income uses permanent multipliers only (no weather/party bonus).
     set Session.Profile.IncomeSnapshot = G.ComputeIncomePerSecond(Session, false)
     if (WriteSavedProfile[Session.Player, Session.Profile, Now]):
         set Session.LastSaveTime = G.GetNow()
@@ -62,6 +62,7 @@ using { /Verse.org/Simulation }
         set Session.Profile.PendingOfflineReward = 0.0
         G.AddCash(Session, Reward)
         G.PlaySfx(Session, sfx_key.Claim)
+        G.RefreshHud(Session)
         G.SaveSession(Session)
 
 # Development only: wipe this player's save and restart their profile.

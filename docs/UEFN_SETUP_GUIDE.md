@@ -246,6 +246,8 @@ One entry per `vfx_key`, each with a small pool (2-4) of VFX Spawners (`Enabled 
 
 `vfx_key` values: `Splash, SonarPulse, EggCrackBurst, HatchEnergy, HatchCommon, HatchRare, HatchEpic, HatchLegendary, HatchMythic, HatchDivine, HatchEthereal, RareSpawnBeacon, MutationFlash, DeepDiveWave, FeedSparkle, SellCoins, IndexReward, EggSecured`.
 
+All pooled effects must be **one-shot** (non-looping), because a spawner is only turned off when the pool reuses it. `RareSpawnBeacon` plays when a Legendary or Mythic egg surfaces. Keep it a short, low burst rather than a tall pillar. Divine and Ethereal eggs get no beacon, so their location stays secret.
+
 Players with **Low Effects Mode** or **Other Player Effects** off get fewer effects. Keep particle counts modest ([PERFORMANCE.md](PERFORMANCE.md)).
 
 ---

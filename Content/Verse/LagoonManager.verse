@@ -135,6 +135,9 @@ MaxDisplayedLagoonCreatures : int = 8
                 SizeClass := Def.SizeClass
         spawn{ Lagoon.ShowCreatures(Requests) }
 
+# Seconds between two "all incubators are full" warnings.
+IncubatorsFullWarningSeconds : float = 6.0
+
 # Carried eggs are secured automatically when the carrier enters their own
 # Lagoon (if AutoSecureInLagoon); otherwise they must use an incubator.
 (G:sea_beast_game_device).CheckLagoonDelivery(Session:player_session):void =
@@ -143,5 +146,6 @@ MaxDisplayedLagoonCreatures : int = 8
             for (Carried : Session.Carried):
                 if (Index := G.FirstEmptyIncubator[Session]):
                     G.SecureCarriedEgg(Session, Carried, Index)
-                else:
+                else if (G.GetNow() - Session.LastFullIncubatorWarning >= IncubatorsFullWarningSeconds):
+                    set Session.LastFullIncubatorWarning = G.GetNow()
                     G.ShowToast(Session, "ALL INCUBATORS ARE FULL! HATCH AN EGG TO MAKE ROOM.", ThemeWarning)

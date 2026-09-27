@@ -50,11 +50,14 @@ DebugCommandName(Command:debug_command)<computes>:string =
             G.ShowToast(Session, "DEV: TIDE RESET", ThemeCyan)
         debug_command.GiveCreature =>
             TypeID := Clamp(Arg, 1, CreatureCount)
-            NewCreature := G.GrantCreature(Session, TypeID, 0, 0)
-            G.RegisterCreatureDiscovery(Session, TypeID, 0)
-            G.AutoPlaceIfRoom(Session, NewCreature.UniqueID)
-            G.RefreshLagoon(Session)
-            G.ShowToast(Session, "DEV: GAVE {CreatureName(TypeID)}", ThemeCyan)
+            if (P.Creatures.Length >= MaxCreatureInventory):
+                G.ShowToast(Session, "DEV: COLLECTION FULL ({MaxCreatureInventory})", ThemeDanger)
+            else:
+                NewCreature := G.GrantCreature(Session, TypeID, 0, 0)
+                G.RegisterCreatureDiscovery(Session, TypeID, 0)
+                G.AutoPlaceIfRoom(Session, NewCreature.UniqueID)
+                G.RefreshLagoon(Session)
+                G.ShowToast(Session, "DEV: GAVE {CreatureName(TypeID)}", ThemeCyan)
         debug_command.SetMutation =>
             MutationID := Clamp(Arg, 0, MutationCount - 1)
             if (C := G.FindCreature[Session, P.ActiveMountID]):

@@ -79,6 +79,10 @@ using { /UnrealEngine.com/Temporary/UI }
         G.ReleaseTutorialEgg(Session)
         G.ReleaseLagoon(Session)
         G.StopMusic(Session)
+        # Tasks still holding this session (hatch, Deep Dive, intro,
+        # tutorial) see this and stop; SaveSession ignores unloaded sessions
+        # so a stale profile can never overwrite a newer save after a rejoin.
+        set Session.Loaded = false
     set G.Sessions = G.RemoveSessionEntry(Player)
 
 (G:sea_beast_game_device).RemoveSessionEntry(Removed:player)<transacts>:[player]player_session =
@@ -87,10 +91,13 @@ using { /UnrealEngine.com/Temporary/UI }
         if (set NewMap[Key] = Value) {}
     NewMap
 
-# Every respawn goes back to the player's own Lagoon.
+# Every respawn goes back to the player's own Lagoon. An egg carried when the
+# player was eliminated is lost (it would otherwise be delivered for free).
 (G:sea_beast_game_device).OnPlayerSpawned(Agent:agent):void =
     if (Session := G.GetAgentSession[Agent], Session.Loaded?):
         G.ForceDismount(Session)
+        for (Carried : Session.Carried):
+            G.CrackCarriedEgg(Session, Carried)
         G.TeleportToLagoon(Session)
 
 (G:sea_beast_game_device).TeleportToLagoon(Session:player_session):void =
