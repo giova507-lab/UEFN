@@ -51,6 +51,10 @@ DayCycleLength()<computes>:float = DaySeconds + SunsetSeconds + NightSeconds
     set G.CurrentPhase = Phase
     for (Entry : G.DayPhaseVisuals, Entry.Phase = Phase):
         G.ApplyEnvironmentHooks(Entry.Hooks, true)
+    # An active weather event keeps its look on top of the new phase.
+    if (G.CurrentWeather <> weather_kind.Clear):
+        for (Entry : G.WeatherVisuals, Entry.Weather = G.CurrentWeather):
+            G.RestoreHookState(Entry.Hooks)
     if (Phase = day_phase.Night):
         G.AnnounceGlobal("NIGHT TIDE\n10X EGG GROWTH", ThemeNight)
     else if (Phase = day_phase.Day):

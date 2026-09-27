@@ -43,9 +43,10 @@ using { /UnrealEngine.com/Temporary/UI }
     # 4. Input, preferred controls.
     G.RegisterPlayerInput(Session)
     G.InitDefaultSettings(Session)
-    # 5. UI.
+    # 5. UI and the current day phase / weather screen effects.
     Session.UI.BuildHud()
     G.HideUnusedFortniteHud(Player)
+    G.ApplyEnvironmentForPlayer(Session)
     # 6. Sonar stock for this player.
     G.InitSessionSonarStock(Session)
     # 7. Offline progress (income + incubation) before anything is shown.

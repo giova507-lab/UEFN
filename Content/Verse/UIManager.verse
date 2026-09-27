@@ -229,11 +229,14 @@ player_ui_controller := class:
         ShowWidget(DevTabButton, logic{Game.IsDeveloperSession[]})
         for (I -> Root : ScreenRoots):
             ShowWidget(Root, logic{ScreenIndex(Screen) = I})
-        RefreshOpenMenu()
         if (PlayerUI := GetPlayerUI[Player], not MenuAdded?):
             PlayerUI.AddWidget(MenuCanvas, player_ui_slot{InputMode := ui_input_mode.All, ZOrder := 5})
             set MenuAdded = true
+        # After MenuAdded is set, so the first open is filled in too.
+        RefreshOpenMenu()
         if (Session := GetMySession[]):
+            # The menu captures input: a ridden beast must not keep swimming.
+            Game.ClearMountInput(Session)
             Game.PlaySfx(Session, sfx_key.UIClick)
 
     CloseMenu():void =

@@ -74,7 +74,9 @@ BreachLaunchVelocity(Breach:float)<reads>:float =
 MountedPickupRadius(SizeClass:int)<computes>:float =
     EggPickupRadiusMounted * (1.0 + 0.15 * ToFloat(Max(0, SizeClass)))
 
-# Dive depth grows slightly with Breach (strong swimmers dive deeper).
+# Dive depth scales with Breach (0.75x - 1.6x of the default depth), capped by
+# the local limit: MountDefaultDiveDepthCm in open water, so the extra depth
+# of strong swimmers only shows inside DeepWater zones.
 DiveDepthForBreach(Breach:float, ZoneMaxDepth:float)<computes>:float =
     Depth := MountDefaultDiveDepthCm * ClampF(Breach / 100.0, 0.75, 1.6)
     MinF(Depth, ZoneMaxDepth)

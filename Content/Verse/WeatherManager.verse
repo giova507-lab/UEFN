@@ -24,7 +24,8 @@ using { /Verse.org/Random }
                     Sleep(Duration)
                     G.NoForcedWeather()
                 block:
-                    option{G.ForceWeatherEvent.Await()}
+                    ForcedKind := G.ForceWeatherEvent.Await()
+                    option{ForcedKind}
             set Next = if (F := Forced?) then F else G.PickNextWeather()
         else:
             Duration := GetRandomFloat(WeatherEventMinSeconds, WeatherEventMaxSeconds)
@@ -37,7 +38,8 @@ using { /Verse.org/Random }
                     G.RunMutationRolls(G.CurrentWeather)
                     G.NoForcedWeather()
                 block:
-                    option{G.ForceWeatherEvent.Await()}
+                    ForcedKind := G.ForceWeatherEvent.Await()
+                    option{ForcedKind}
             set Next = if (F := Forced?) then F else weather_kind.Clear
         G.SetWeather(Next)
 
@@ -67,6 +69,9 @@ using { /Verse.org/Random }
     Previous := G.CurrentWeather
     if (Previous <> weather_kind.Clear):
         G.ApplyWeatherHooks(Previous, false)
+        # Leaving an event must not undo the current day phase's look.
+        for (Entry : G.DayPhaseVisuals, Entry.Phase = G.CurrentPhase):
+            G.RestoreHookState(Entry.Hooks)
     set G.CurrentWeather = Kind
     if (Kind = weather_kind.PrimordialStorm):
         set G.LastPrimordialTime = G.GetNow()
@@ -120,6 +125,21 @@ using { /Verse.org/Random }
             Sound.Stop()
         for (Trigger : Hooks.ExitTriggers):
             Trigger.Trigger()
+
+# Re-applies only the state-like parts of hooks (skydomes, post process,
+# lights, effects) without replaying their sounds or triggers. Used when a
+# weather event ends during a phase, or a phase changes during an event.
+(G:sea_beast_game_device).RestoreHookState(Hooks:environment_hooks):void =
+    for (Sky : Hooks.EnableSkydomes):
+        Sky.Enable()
+    for (Sky : Hooks.DisableSkydomes):
+        Sky.Disable()
+    for (Post : Hooks.PostProcess, Player -> Session : G.Sessions, not Session.Profile.LowEffectsMode?):
+        Post.BlendIn(Player)
+    for (Light : Hooks.Lights):
+        Light.TurnOn()
+    for (Effect : Hooks.Effects):
+        Effect.Enable()
 
 # Applies the current weather/phase post process to a newly joined player.
 (G:sea_beast_game_device).ApplyEnvironmentForPlayer(Session:player_session):void =

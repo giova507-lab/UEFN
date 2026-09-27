@@ -179,16 +179,17 @@ def main():
                         findings.append((fname, ln, "%s calls <decides> %s with () - use []" % (name, callee)))
                     if bracket == "[" and all("decides" not in e for e in sets) and callee in project:
                         findings.append((fname, ln, "%s calls non-<decides> %s with []" % (name, callee)))
-    # Failure contexts: if (...) / for (...) headers and logic{...} may only
-    # call rollback-safe functions.
+    # Failure contexts: if (...) / for (...) headers, logic{...} and
+    # option{...} may only call rollback-safe functions (so never a
+    # <suspends> one such as event.Await()).
     for path, text in files.items():
         fname = os.path.basename(path)
         for ln, raw in enumerate(text.split("\n"), 1):
             line = strip(raw)
-            for m in re.finditer(r"\b(if|for)\s*\(|logic\{", line):
+            for m in re.finditer(r"\b(if|for)\s*\(|\b(?:logic|option)\{", line):
                 start = m.end()
                 depth = 1
-                close = "}" if m.group(0).startswith("logic") else ")"
+                close = "}" if m.group(0).endswith("{") else ")"
                 opener = "{" if close == "}" else "("
                 i = start
                 while i < len(line) and depth > 0:

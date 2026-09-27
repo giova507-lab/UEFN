@@ -77,6 +77,8 @@ mount_runtime := class:
     var SizeClass : int = 0
     var WakeOn : logic = false
     var LastSurfaceZ : float = 0.0
+    # Water surface the current dive started from (raised pools included).
+    var DiveSurfaceZ : float = 0.0
     var LastBiomeCheck : float = 0.0
     # Increments on every mount/dismount so stale loops exit.
     var Generation : int = 0

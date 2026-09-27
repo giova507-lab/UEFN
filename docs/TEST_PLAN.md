@@ -85,6 +85,13 @@ Use DEV → GIVE CREATURE for IDs 1-30 and ride each one.
 | D7 | Animation variants | Idle when stopped, swim, fast swim (if assigned). |
 | D8 | Pool slots full | A 3rd rider of a 2-slot creature uses the static fallback without errors. |
 | D9 | Mutations | Electrified → Primordial speeds change the physical speed only moderately. |
+| D10 | Switch beasts while riding at sea | The new beast appears where the old one was, not at the dock. |
+| D11 | Menu → RIDE while standing on land far from the Lagoon (or carrying an egg) | Refused with "GET INTO OPEN WATER…". Never a teleport home. |
+| D12 | Open the menu while swimming | The beast coasts to a stop. Controls respond again after closing. |
+| D13 | Breach onto an island or rock | The beast slides off the edge into the water; it never hovers or gets stuck. |
+| D14 | Dive inside a raised pool | Returns to the pool surface; it never sinks through the pool floor. |
+| D15 | Fastest beast (Celestial Serpent) against a thin reef wall | Blocked; it never passes through. |
+| D16 | Dismount or respawn during the mounting moment | The rider ends up free (not seated in a hidden chair, not frozen). |
 
 ## E. Input platforms
 

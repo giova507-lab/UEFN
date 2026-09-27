@@ -57,7 +57,8 @@ input_router := class:
         PlayerInput.GetInputEvents(WeaponSecondary).BeginDetectEvent.Subscribe(Router.OnAimBegin)
         PlayerInput.GetInputEvents(WeaponSecondary).EndDetectEvent.Subscribe(Router.OnAimEnd)
         PlayerInput.GetInputEvents(Reload).EndDetectEvent.Subscribe(Router.OnReloadEnd)
-        set Session.IsTouch = logic{PlayerInput.PreferredInputMethod = input_method.Touch}
+        # Touch is a platform capability that does not change during a session.
+        set Session.IsTouch = PlayerInput.AvailableInputDevices.Touch
         set Session.InputRegistered = true
     else:
         LogSeaWarning("GetPlayerInput failed; mounted controls will use the menu only.")
@@ -99,6 +100,17 @@ input_router := class:
     if (Session := G.GetPlayerSession[Player], Session.Loaded?, HeldSeconds >= MenuHoldSeconds):
         if (not Session.DeepDiveRunning?, Session.HatchingIncubator < 0):
             Session.UI.ToggleMainMenu()
+
+# Releases every held mount control (used when a menu captures input, so a
+# ridden beast coasts to a stop instead of swimming on by itself).
+(G:sea_beast_game_device).ClearMountInput(Session:player_session):void =
+    set Session.FireHeld = false
+    set Session.AimHeld = false
+    set Session.CrouchHeld = false
+    set Session.CruiseOn = false
+    set Session.BoostOn = false
+    set Session.AnalogForward = 0.0
+    set Session.AnalogRight = 0.0
 
 # ---------------------------------------------------------------- Analog ---
 # Forward/Right in -1..1, relative to the camera. Called by input providers.

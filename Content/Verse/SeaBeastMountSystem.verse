@@ -55,7 +55,12 @@ seat_exit_handler := class:
             Device.Pause()
 
 (G:sea_beast_game_device).ParkObject(Object:creative_object):void =
-    if (Object.TeleportTo[G.ParkingLocation, IdentityRotation()]) {}
+    if (Object.TeleportTo[G.ParkingLocation, IdentityRotation()]):
+        return
+    # (A teleport inside `not` would be rolled back, so check success first.)
+    if (not G.ParkingWarned?):
+        set G.ParkingWarned = true
+        LogSeaWarning("Could not move an object to ParkingLocation - move it inside the island bounds on the game device.")
 
 (G:sea_beast_game_device).ParkRig(Rig:mount_rig_setup):void =
     G.ParkObject(Rig.Seat)
@@ -103,20 +108,31 @@ seat_exit_handler := class:
         return
     if (Session.Mount.State = mount_state.Mounting):
         return
+    var UseDock : logic = AtDock
+    var HaveSpot : logic = false
+    var StartPos : vector3 = vector3{}
+    var StartYaw : float = 0.0
     if (Session.Mount.State = mount_state.Mounted):
         if (Session.Mount.CreatureUID = UID):
             return
+        # Switching beasts at sea: the new one appears where the old one was.
+        set StartPos = vector3{X := Session.Mount.PosX, Y := Session.Mount.PosY, Z := Session.Mount.PosZ}
+        set StartYaw = Session.Mount.Yaw
+        set HaveSpot = true
+        set UseDock = false
         G.Dismount(Session, false)
-    G.SetActiveMount(Session, UID)
-    var UseDock : logic = AtDock
-    var StartPos : vector3 = vector3{}
-    var StartYaw : float = 0.0
-    if (not UseDock?):
+    if (not UseDock? and not HaveSpot?):
         if (Spot := G.FindWaterSpotNearPlayer[Session]):
             set StartPos = Spot(0)
             set StartYaw = Spot(1)
-        else:
+        else if (G.IsNearOwnLagoon[Session], Session.Carried.Length = 0):
             set UseDock = true
+        else:
+            # Never a free trip home: away from water the beast only comes
+            # to the player's own Lagoon dock.
+            G.ShowToast(Session, "GET INTO OPEN WATER TO CALL YOUR SEA BEAST, OR USE THE RIDE DOCK AT YOUR LAGOON.", ThemeWarning)
+            return
+    G.SetActiveMount(Session, UID)
     if (UseDock?):
         if (Lagoon := G.GetLagoonForSession[Session]):
             set StartPos = Lagoon.GetMountPosition()
@@ -124,6 +140,11 @@ seat_exit_handler := class:
         else:
             return
     spawn{ G.DoMount(Session, UID, StartPos, StartYaw) }
+
+(G:sea_beast_game_device).IsNearOwnLagoon(Session:player_session)<transacts><decides>:void =
+    Lagoon := G.GetLagoonForSession[Session]
+    Character := Session.Player.GetFortCharacter[]
+    Lagoon.IsInsideArea[Character.GetTransform().Translation]
 
 # Succeeds with (position at the surface, yaw) when the player stands in or
 # right next to open water.
@@ -160,13 +181,15 @@ seat_exit_handler := class:
         set Session.BoostOn = false
         G.AcquireMountVisual(Session)
         G.TeleportRig(Session)
-        Attached := G.AttachRider(Session, Rig, Character)
+        Attached := G.AttachRider(Session, Rig, Character, Generation)
+        if (M.Generation <> Generation):
+            # Dismounted while seating (respawn, menu, leaving): Dismount has
+            # already cleaned up and AttachRider undid its own seating.
+            return
         if (not Attached?):
             G.ShowToast(Session, "YOUR SEA BEAST COULD NOT PICK YOU UP. TRY AGAIN.", ThemeDanger)
             G.CleanupRig(Session)
             set M.State = mount_state.Dismounted
-            return
-        if (M.Generation <> Generation):
             return
         set M.State = mount_state.Mounted
         G.PlaySfx(Session, sfx_key.Mount)
@@ -177,23 +200,33 @@ seat_exit_handler := class:
         G.RunMountLoop(Session, Generation)
 
 # Seats the rider. Chair mode first; falls back to the saddle platform.
-(G:sea_beast_game_device).AttachRider(Session:player_session, Rig:mount_rig_setup, Character:fort_character)<suspends>:logic =
+# Generation is the mount generation of this ride: if it changes while
+# waiting for the seat (the ride was cancelled), the seating is undone.
+(G:sea_beast_game_device).AttachRider(Session:player_session, Rig:mount_rig_setup, Character:fort_character, Generation:int)<suspends>:logic =
     if (G.RiderAttachMode = rider_attach_mode.Chair):
         Rig.Seat.Enable()
         Rig.Seat.EnableExit()
         var Attempt : int = 0
         loop:
-            if (Attempt >= 3):
+            if (Attempt >= 3 or Session.Mount.Generation <> Generation):
                 break
             Rig.Seat.Seat(Session.Player)
             Sleep(0.15)
             if (Rig.Seat.IsSeated[Session.Player]):
                 break
             set Attempt += 1
+        if (Session.Mount.Generation <> Generation):
+            if (Rig.Seat.IsSeated[Session.Player]):
+                Rig.Seat.EnableExit()
+                Rig.Seat.Eject(Session.Player)
+                G.MoveRiderToExit(Session)
+            return false
         if (Rig.Seat.IsSeated[Session.Player]):
             Rig.Seat.DisableExit()
             return true
         LogSeaWarning("Chair seating failed - falling back to the saddle platform for this ride.")
+    if (Session.Mount.Generation <> Generation):
+        return false
     if (Saddle := Rig.Saddle[0]):
         SaddlePos := G.GetSaddlePosition(Session)
         if (Saddle.TeleportTo[SaddlePos, MakeRotationFromYawPitchRollDegrees(Session.Mount.Yaw, 0.0, 0.0)]) {}
@@ -213,14 +246,11 @@ seat_exit_handler := class:
         return
     set M.Generation += 1
     set M.State = mount_state.Dismounted
-    ExitPos := vector3{X := M.PosX, Y := M.PosY, Z := M.PosZ + M.SaddleHeight + 120.0}
     if (Rig := G.GetRig[Session]):
         if (Rig.Seat.IsSeated[Session.Player]):
             Rig.Seat.EnableExit()
             Rig.Seat.Eject(Session.Player)
-    if (Character := Session.Player.GetFortCharacter[]):
-        Character.ReleaseFromStasis()
-        if (Character.TeleportTo[ExitPos, MakeRotationFromYawPitchRollDegrees(M.Yaw, 0.0, 0.0)]) {}
+    G.MoveRiderToExit(Session)
     G.CleanupRig(Session)
     set Session.CruiseOn = false
     set Session.BoostOn = false
@@ -232,6 +262,14 @@ seat_exit_handler := class:
 
 (G:sea_beast_game_device).ForceDismount(Session:player_session):void =
     G.Dismount(Session, false)
+
+# Frees the rider and puts them just above where the beast was.
+(G:sea_beast_game_device).MoveRiderToExit(Session:player_session):void =
+    M := Session.Mount
+    ExitPos := vector3{X := M.PosX, Y := M.PosY, Z := M.PosZ + M.SaddleHeight + 120.0}
+    if (Character := Session.Player.GetFortCharacter[]):
+        Character.ReleaseFromStasis()
+        if (Character.TeleportTo[ExitPos, MakeRotationFromYawPitchRollDegrees(M.Yaw, 0.0, 0.0)]) {}
 
 (G:sea_beast_game_device).CleanupRig(Session:player_session):void =
     M := Session.Mount
@@ -311,7 +349,7 @@ seat_exit_handler := class:
             if (OldDevice := G.GetActiveVisualDevice[Session]):
                 OldDevice.Pause()
                 G.ParkObject(OldDevice)
-            if (NewDevice.TeleportTo[Transform.Translation, Transform.Rotation]) {}
+            if (NewDevice.TeleportTo[Transform]) {}
             NewDevice.Play()
             set M.VisualVariant = Desired
 
@@ -335,6 +373,10 @@ seat_exit_handler := class:
         G.StepLocomotion(Session, Dt, Now)
         G.UpdateVisualVariant(Session)
         G.ApplyRig(Session)
+        # A rider standing on the saddle platform is checked every tick so
+        # fast beasts do not leave them behind.
+        if (G.RiderAttachMode = rider_attach_mode.PlatformStasis):
+            G.SnapRiderIfNeeded(Session)
         if (Now >= NextCheck):
             set NextCheck = Now + 0.5
             G.MountSafetyChecks(Session)
@@ -378,13 +420,26 @@ seat_exit_handler := class:
         Rate := if (Session.AimHeld? and M.Speed > 0.0) then M.MaxSpeed / MountBrakeTime else if (TargetSpeed = 0.0) then M.MaxSpeed / MountCoastTime else M.MaxSpeed / MountAccelerationTime
         set M.Speed = MoveToward(M.Speed, TargetSpeed, Rate * Dt)
     # ---- Horizontal movement with shore sliding ----
+    # Sub-stepped (each step at most the beast's radius) so fast beasts
+    # cannot skip through thin reef walls between two ticks.
     YawRad := DegreesToRadians(M.Yaw)
-    ToX := M.PosX + Cos(YawRad) * M.Speed * Dt
-    ToY := M.PosY + Sin(YawRad) * M.Speed * Dt
-    Resolved := G.Navigator.ResolveHorizontal(M.PosX, M.PosY, ToX, ToY, M.PosZ, M.Radius)
-    set M.PosX = Resolved(0)
-    set M.PosY = Resolved(1)
-    if (Resolved(2)?):
+    TravelDistance := AbsF(M.Speed) * Dt
+    StepLength := MaxF(M.Radius, 100.0)
+    StepCount := Clamp(FloorToInt(TravelDistance / StepLength, 0) + 1, 1, 8)
+    StepX := Cos(YawRad) * M.Speed * Dt / ToFloat(StepCount)
+    StepY := Sin(YawRad) * M.Speed * Dt / ToFloat(StepCount)
+    var HitShore : logic = false
+    var StepIndex : int = 0
+    loop:
+        if (StepIndex >= StepCount or HitShore?):
+            break
+        Resolved := G.Navigator.ResolveHorizontal(M.PosX, M.PosY, M.PosX + StepX, M.PosY + StepY, M.PosZ, M.Radius)
+        set M.PosX = Resolved(0)
+        set M.PosY = Resolved(1)
+        if (Resolved(2)?):
+            set HitShore = true
+        set StepIndex += 1
+    if (HitShore?):
         set M.Speed = M.Speed * 0.35
     # ---- Vertical ----
     Surface := G.Navigator.SurfaceZAt(M.PosX, M.PosY, M.PosZ)
@@ -392,6 +447,9 @@ seat_exit_handler := class:
     if (M.Mode = swim_mode.Surface):
         if (Session.CrouchHeld?):
             set M.Mode = swim_mode.Diving
+            # A raised pool's surface stops counting once the beast is deep
+            # in it, so the dive keeps the surface it started from.
+            set M.DiveSurfaceZ = Surface
         else if (M.PosZ > Surface + 40.0):
             # Swam off the edge of a raised pool: fall back down.
             set M.Mode = swim_mode.Airborne
@@ -399,18 +457,19 @@ seat_exit_handler := class:
         else:
             set M.PosZ = Surface
     if (M.Mode = swim_mode.Diving):
+        DiveSurface := M.DiveSurfaceZ
         MaxDepth := DiveDepthForBreach(G.GetMountBreach(Session), G.Navigator.MaxDiveDepthAt(M.PosX, M.PosY))
-        TargetZ := if (Session.CrouchHeld?) then Surface - MaxDepth else Surface
+        TargetZ := if (Session.CrouchHeld?) then DiveSurface - MaxDepth else DiveSurface
         NewZ := MoveToward(M.PosZ, TargetZ, MountDiveSpeedCmPerSec * Dt)
         if (not G.Navigator.IsBlocked[M.PosX, M.PosY, NewZ, M.Radius]):
             set M.VerticalSpeed = (NewZ - M.PosZ) / Dt
             set M.PosZ = NewZ
-        if (not Session.CrouchHeld?, M.PosZ >= Surface - 5.0):
-            set M.PosZ = Surface
+        if (not Session.CrouchHeld?, M.PosZ >= DiveSurface - 5.0):
+            set M.PosZ = DiveSurface
             set M.Mode = swim_mode.Surface
             set M.VerticalSpeed = 0.0
     if (M.Mode = swim_mode.Airborne):
-        set M.VerticalSpeed = M.VerticalSpeed - MountGravityCmPerSec2 * Dt
+        set M.VerticalSpeed = MaxF(M.VerticalSpeed - MountGravityCmPerSec2 * Dt, -MountMaxFallSpeed)
         NewZ := M.PosZ + M.VerticalSpeed * Dt
         LandingSurface := G.Navigator.SurfaceZAt(M.PosX, M.PosY, M.PosZ)
         if (M.VerticalSpeed < 0.0 and NewZ <= LandingSurface):
@@ -421,9 +480,17 @@ seat_exit_handler := class:
             G.PlaySfx(Session, sfx_key.Splash)
             if (M.SizeClass >= 4):
                 G.PlayCameraShake(Session, false)
-        else if (G.Navigator.IsBlocked[M.PosX, M.PosY, NewZ, M.Radius]):
-            # Hit a ledge: bounce off and keep falling.
-            set M.VerticalSpeed = MinF(M.VerticalSpeed, 0.0)
+        else if (Zone := G.Navigator.FindBlockingZone[M.PosX, M.PosY, NewZ, M.Radius]):
+            if (M.VerticalSpeed > 0.0):
+                # Hit something overhead (an arch): start falling.
+                set M.VerticalSpeed = 0.0
+            else:
+                # Falling onto land: slide off its edge and keep falling
+                # into the water instead of hovering above it.
+                Pushed := Zone.PushOut(M.PosX, M.PosY, M.Radius)
+                set M.PosX = Pushed(0)
+                set M.PosY = Pushed(1)
+                set M.PosZ = NewZ
             set M.Speed = M.Speed * 0.5
         else:
             set M.PosZ = NewZ
@@ -477,13 +544,15 @@ MoveToward(Current:float, Target:float, MaxStep:float)<computes>:float =
     M := Session.Mount
     MakeRotationFromYawPitchRollDegrees(M.Yaw, M.Pitch * 0.5, M.Bank * 0.3)
 
-# Instant placement used when mounting.
+# Instant placement used when mounting. Creature visuals use the transform
+# overloads so the creature's visual scale (size class x DisplayScale) is
+# applied, matching the saddle height.
 (G:sea_beast_game_device).TeleportRig(Session:player_session):void =
     Visual := G.GetVisualTransform(Session)
     if (Device := G.GetActiveVisualDevice[Session]):
-        if (Device.TeleportTo[Visual.Translation, Visual.Rotation]) {}
+        if (Device.TeleportTo[Visual]) {}
     if (Prop := Session.Mount.FallbackProp?):
-        if (Prop.TeleportTo[Visual.Translation, Visual.Rotation]) {}
+        if (Prop.TeleportTo[Visual]) {}
     if (Rig := G.GetRig[Session]):
         if (Rig.Seat.TeleportTo[G.GetSaddlePosition(Session), G.GetSeatRotation(Session)]) {}
 
@@ -496,9 +565,9 @@ MoveToward(Current:float, Target:float, MaxStep:float)<computes>:float =
     SaddlePos := G.GetSaddlePosition(Session)
     SeatRot := G.GetSeatRotation(Session)
     if (Device := G.GetActiveVisualDevice[Session]):
-        spawn{ G.MoveObject(Device, Visual.Translation, Visual.Rotation, MoveTime) }
+        spawn{ G.MoveObjectTransform(Device, Visual, MoveTime) }
     if (Prop := M.FallbackProp?, Prop.IsValid[]):
-        spawn{ G.MoveProp(Prop, Visual.Translation, Visual.Rotation, MoveTime) }
+        spawn{ G.MoveObjectTransform(Prop, Visual, MoveTime) }
     if (Rig := G.GetRig[Session]):
         if (G.RiderAttachMode = rider_attach_mode.Chair):
             spawn{ G.MoveObject(Rig.Seat, SaddlePos, SeatRot, MoveTime) }
@@ -511,6 +580,9 @@ MoveToward(Current:float, Target:float, MaxStep:float)<computes>:float =
 
 (G:sea_beast_game_device).MoveProp(Prop:creative_prop, Position:vector3, Rotation:rotation, Time:float)<suspends>:void =
     Prop.MoveTo(Position, Rotation, Time)
+
+(G:sea_beast_game_device).MoveObjectTransform(Object:creative_object, Target:transform, Time:float)<suspends>:void =
+    Object.MoveTo(Target, Time)
 
 (G:sea_beast_game_device).UpdateWake(Session:player_session, Rig:mount_rig_setup, MoveTime:float):void =
     M := Session.Mount
@@ -528,13 +600,18 @@ MoveToward(Current:float, Target:float, MaxStep:float)<computes>:float =
             Wake.Disable()
     set M.WakeOn = WantWake
 
-# Twice per second: rider re-snap (platform mode), biome tracking.
+# Twice per second: rider re-snap if a chair lost its rider, biome tracking.
 (G:sea_beast_game_device).MountSafetyChecks(Session:player_session):void =
     M := Session.Mount
-    if (G.RiderAttachMode = rider_attach_mode.PlatformStasis or not G.IsSeatedInChair[Session]):
-        if (Character := Session.Player.GetFortCharacter[]):
-            SaddlePos := G.GetSaddlePosition(Session)
-            RiderPos := Character.GetTransform().Translation
-            if (Distance(RiderPos, SaddlePos + vector3{X := 0.0, Y := 0.0, Z := 100.0}) > MountRiderSnapDistance):
-                if (Character.TeleportTo[SaddlePos + vector3{X := 0.0, Y := 0.0, Z := 110.0}, MakeRotationFromYawPitchRollDegrees(M.Yaw, 0.0, 0.0)]) {}
+    if (G.RiderAttachMode = rider_attach_mode.Chair and not G.IsSeatedInChair[Session]):
+        G.SnapRiderIfNeeded(Session)
     G.UpdateBiome(Session, vector3{X := M.PosX, Y := M.PosY, Z := M.PosZ})
+
+# Puts the rider back on the saddle when they drifted too far from it.
+(G:sea_beast_game_device).SnapRiderIfNeeded(Session:player_session):void =
+    M := Session.Mount
+    if (Character := Session.Player.GetFortCharacter[]):
+        SaddlePos := G.GetSaddlePosition(Session)
+        RiderPos := Character.GetTransform().Translation
+        if (Distance(RiderPos, SaddlePos + vector3{X := 0.0, Y := 0.0, Z := 100.0}) > MountRiderSnapDistance):
+            if (Character.TeleportTo[SaddlePos + vector3{X := 0.0, Y := 0.0, Z := 110.0}, MakeRotationFromYawPitchRollDegrees(M.Yaw, 0.0, 0.0)]) {}

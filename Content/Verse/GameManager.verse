@@ -113,6 +113,7 @@ sea_beast_game_device := class(creative_device):
     var Stations : []menu_station_device = array{}
     var LastEggPointByType : []int = array{}
     var Started : logic = false
+    var ParkingWarned : logic = false
     ForceTideEvent : event() = event(){}
     ForceWeatherEvent : event(weather_kind) = event(weather_kind){}
 

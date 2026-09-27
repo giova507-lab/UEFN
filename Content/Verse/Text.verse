@@ -4,6 +4,7 @@
 # so they can be translated in one place. Dynamic values are formatted by
 # NumberFormatter.verse and injected through ToMessage.
 # ============================================================================
+using { /Verse.org/Simulation }
 
 ToMessage<localizes>(Text:string):message = "{Text}"
 EmptyMessage<localizes>:message = ""

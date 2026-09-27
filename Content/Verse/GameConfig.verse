@@ -76,6 +76,8 @@ MountCruiseFraction : float = 0.8
 MountSurfaceBobCm : float = 8.0
 MountSurfaceBobHz : float = 0.6
 MountGravityCmPerSec2 : float = 2000.0
+# Terminal falling speed (cm/s) after a breach or off a pool edge.
+MountMaxFallSpeed : float = 4000.0
 MountDiveSpeedCmPerSec : float = 350.0
 MountDefaultDiveDepthCm : float = 600.0
 MountMaxBankDegrees : float = 22.0
@@ -132,31 +134,31 @@ IntroCinematicSeconds : float = 10.0
 
 # ================================================================ Colors ====
 # Original UI theme: navy, cyan, turquoise, white, pearl, gold.
-ThemeNavy : color = MakeColorFromHex("#0A1F3D")
-ThemeNavyDark : color = MakeColorFromHex("#06142A")
-ThemeNavyLight : color = MakeColorFromHex("#16345F")
-ThemeCyan : color = MakeColorFromHex("#27E1FF")
-ThemeTurquoise : color = MakeColorFromHex("#1FC8B4")
-ThemeWhite : color = MakeColorFromHex("#FFFFFF")
-ThemePearl : color = MakeColorFromHex("#F3EEE4")
-ThemeGold : color = MakeColorFromHex("#FFC83D")
-ThemeCash : color = MakeColorFromHex("#7CFF6B")
-ThemeDanger : color = MakeColorFromHex("#FF4D5E")
-ThemeWarning : color = MakeColorFromHex("#FF9F2E")
-ThemeMuted : color = MakeColorFromHex("#8FA6C4")
-ThemeNight : color = MakeColorFromHex("#8C7CFF")
-ThemeSunset : color = MakeColorFromHex("#FF8A4C")
+ThemeNavy : color = MakeColorFromHex("0A1F3D")
+ThemeNavyDark : color = MakeColorFromHex("06142A")
+ThemeNavyLight : color = MakeColorFromHex("16345F")
+ThemeCyan : color = MakeColorFromHex("27E1FF")
+ThemeTurquoise : color = MakeColorFromHex("1FC8B4")
+ThemeWhite : color = MakeColorFromHex("FFFFFF")
+ThemePearl : color = MakeColorFromHex("F3EEE4")
+ThemeGold : color = MakeColorFromHex("FFC83D")
+ThemeCash : color = MakeColorFromHex("7CFF6B")
+ThemeDanger : color = MakeColorFromHex("FF4D5E")
+ThemeWarning : color = MakeColorFromHex("FF9F2E")
+ThemeMuted : color = MakeColorFromHex("8FA6C4")
+ThemeNight : color = MakeColorFromHex("8C7CFF")
+ThemeSunset : color = MakeColorFromHex("FF8A4C")
 
-RarityColorCommon : color = MakeColorFromHex("#D9DEE6")
-RarityColorRare : color = MakeColorFromHex("#3D8BFF")
-RarityColorEpic : color = MakeColorFromHex("#A24DFF")
-RarityColorLegendary : color = MakeColorFromHex("#FFC21A")
-RarityColorMythic : color = MakeColorFromHex("#FF3D8B")
-RarityColorDivine : color = MakeColorFromHex("#3DF2FF")
-RarityColorEthereal : color = MakeColorFromHex("#FF7BF2")
+RarityColorCommon : color = MakeColorFromHex("D9DEE6")
+RarityColorRare : color = MakeColorFromHex("3D8BFF")
+RarityColorEpic : color = MakeColorFromHex("A24DFF")
+RarityColorLegendary : color = MakeColorFromHex("FFC21A")
+RarityColorMythic : color = MakeColorFromHex("FF3D8B")
+RarityColorDivine : color = MakeColorFromHex("3DF2FF")
+RarityColorEthereal : color = MakeColorFromHex("FF7BF2")
 # Second color used to fake gradients (Divine cyan/gold, Ethereal cosmic).
-RarityAccentDivine : color = MakeColorFromHex("#FFD86B")
-RarityAccentEthereal : color = MakeColorFromHex("#6B7BFF")
+RarityAccentDivine : color = MakeColorFromHex("FFD86B")
+RarityAccentEthereal : color = MakeColorFromHex("6B7BFF")
 
 # ================================================================ Helpers ===
 RarityCount : int = 7

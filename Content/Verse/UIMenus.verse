@@ -226,7 +226,7 @@ MakeIndexCard():index_card =
         MakeActionButton(UI, "SEA BEASTS", ui_action.SetIndexTab, 0, 1)
         MakeActionButton(UI, "SEA EGGS", ui_action.SetIndexTab, 1, 1)
         MakeActionButton(UI, "MUTATIONS", ui_action.SetIndexTab, 2, 1)
-    TabRow := MakeHStack(IndexTabs, 3.0)
+    IndexTabRow := MakeHStack(IndexTabs, 3.0)
     set UI.IndexHeader = MakeLabel("", 20.0, ThemeGold)
     set UI.IndexCards = for (I := 0..IndexCardsPerPage - 1). MakeIndexCard()
     IndexRoots1 : []widget = for (I := 0..4, Card := UI.IndexCards[I]). Card.Root
@@ -238,7 +238,7 @@ MakeIndexCard():index_card =
     set UI.MilestoneButtons = for (I := 0..IndexMilestones.Length - 1). MakeActionButton(UI, "", ui_action.ClaimMilestone, I, 2)
     MilestoneWidgets : []widget = for (Button : UI.MilestoneButtons). Button
     MilestoneRow := MakeHStack(MilestoneWidgets, 3.0)
-    MakeVStackLeft(array{TabRow, UI.IndexHeader, Row1, Row2, PageRow, MakeLabel("COLLECTION REWARDS", 18.0, ThemeGold), MilestoneRow}, 4.0)
+    MakeVStackLeft(array{IndexTabRow, UI.IndexHeader, Row1, Row2, PageRow, MakeLabel("COLLECTION REWARDS", 18.0, ThemeGold), MilestoneRow}, 4.0)
 
 (UI:player_ui_controller).RefreshIndex():void =
     if (Session := UI.GetMySession[]):

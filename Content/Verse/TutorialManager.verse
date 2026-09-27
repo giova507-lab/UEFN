@@ -36,6 +36,14 @@ TutorialPollSeconds : float = 0.5
         set Found = true
     Found?
 
+# Before a player's first hatch, no incubating egg needs more than the
+# tutorial incubation time.
+(G:sea_beast_game_device).CapFirstHatchTime(Session:player_session):void =
+    if (Session.Profile.TotalHatches = 0):
+        for (I -> Incubator : Session.Profile.Incubators, Incubator.EggTypeID > 0, Incubator.Required - Incubator.Progress > TutorialIncubationSeconds):
+            set Incubator.Required = Incubator.Progress + TutorialIncubationSeconds
+            G.UpdateIncubatorSign(Session, I)
+
 (G:sea_beast_game_device).RunTutorial(Session:player_session)<suspends>:void =
     set Session.TutorialTaskRunning = true
     P := Session.Profile
@@ -82,6 +90,9 @@ TutorialPollSeconds : float = 0.5
             else if (not G.HasIncubatingEgg[Session] and Session.Carried.Length = 0):
                 set P.TutorialStep = TutorialStepIndex(tutorial_step.FindEgg)
             else:
+                # The very first hatch is always quick, even when a returning
+                # player's incubator holds a slow egg from an earlier visit.
+                G.CapFirstHatchTime(Session)
                 Sleep(TutorialPollSeconds)
         else:
             Sleep(TutorialPollSeconds)

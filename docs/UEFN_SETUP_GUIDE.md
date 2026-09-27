@@ -153,6 +153,8 @@ One entry per creature on the game device's `CreatureVisuals` list:
 
 Animated Mesh device settings: skeletal mesh + looping animation, **Loop** on, no collision. Verse parks and pauses unused ones.
 
+Scale: author every creature mesh at one common base size, with the smallest creatures at scale 1. Verse scales the display prop and the riding visual by the size class (1.0 up to about 4) × `DisplayScale`. Leave the Animated Mesh devices' editor scale at 1. Verse sets the scale when it moves them, so the saddle height always matches.
+
 Recommended pools: 1 slot for common early creatures, 2 slots for popular mid creatures, and 1 slot for each late creature (only a few players will own them). Every animated mesh costs memory, so watch the memory calculator.
 
 The model's forward axis must point along **+X**. If an imported mesh faces another way, fix its rotation inside the prop or animated-mesh blueprint, not in Verse.
@@ -200,7 +202,7 @@ Sea Beasts don't use physics. They follow zones you place. Zones register themse
 | `Biome` | Names a region for the HUD, music, analytics and the Index. Highest `Priority` wins. | `ZoneBiome`, `Priority` |
 | `DeepWater` | Allows dives down to `MaxDiveDepth` (trenches, the Abyss). | `MaxDiveDepth` |
 
-* **Cylinder** zones use `Radius`. **Box** zones use `HalfExtentX/Y` and rotate with the device's yaw.
+* **Cylinder** zones use `Radius`. **Box** zones use `HalfExtentX/Y` and rotate with the device's yaw. The device's **scale is ignored**, so size zones only with these fields.
 * `BottomOffset` / `TopOffset` are relative to the device's Z. A beast is blocked only inside that vertical band. An arch is a Land zone whose bottom is above the dive depth: beasts can dive under it. A low rock whose top is below a strong breach height can be jumped over.
 * Cover every shoreline with overlapping Land zones, with a margin of about 2 m into the water, so beasts slide along shores instead of beaching.
 * Where there is no Biome zone, the biome comes from distance rings around the game device (`BiomeRingRadii`, see [WORLD_DESIGN.md](WORLD_DESIGN.md)).
@@ -284,7 +286,8 @@ Keys: `TutorialStarted, TutorialComplete, FirstEggFound, FirstEggDelivered, Firs
 
 1. Copy the file into the Verse folder and build.
 2. Place an `experimental_move_input_device` and add it to the game device's `InputProviders`.
-3. Remove both before publishing. Without an analog provider, steering uses the camera direction with Fire to swim (hold, or tap to toggle on touch).
+3. Check that moving the stick or WASD while riding steers. The digest doesn't say which input mapping contains `Move`; the device adds `TraversalMapping`. If no events arrive, try another mapping. Use `SwapAxes` / `Invert…` if the directions are wrong.
+4. Remove both before publishing. Without an analog provider, steering uses the camera direction with Fire to swim (hold, or tap to toggle on touch).
 
 ---
 

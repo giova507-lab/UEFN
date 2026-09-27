@@ -299,10 +299,104 @@ def check_shadowing(project, exports, report):
                     report(rel, lineno, "'%s' shadows %s" % (name, where))
 
 
+def check_member_shadowing(project, report):
+    """Inside a class method, or an extension method of a class, a parameter,
+    local or loop variable may not reuse a member name of that class."""
+    for path, text in project.files.items():
+        rel = os.path.basename(path)
+        lines = [strip_comments_and_strings(l) for l in text.split("\n")]
+        current_class = None
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            stripped = line.strip()
+            indent = len(line) - len(line.lstrip(" "))
+            owner = None
+            if stripped and indent == 0:
+                m = re.match(r"^(" + IDENT + r")(?:<[^>]*>)*\s*:=\s*class\b", stripped)
+                current_class = m.group(1) if m else None
+                ext = re.match(r"^\(" + IDENT + r"\s*:\s*(" + IDENT + r")\)\." + IDENT, stripped)
+                if ext:
+                    owner = ext.group(1)
+            elif stripped and indent == 4 and current_class:
+                if re.match(r"^" + IDENT + r"(?:<[^>]*>)*\s*\(.*\)\s*(?:<[^>]*>)*\s*:[^=]*=", stripped):
+                    owner = current_class
+            if not owner or not project.members.get(owner):
+                i += 1
+                continue
+            names = project.members[owner]
+            sig = stripped.split(")", 1)[0] if stripped.startswith("(") else stripped
+            header = stripped[len(stripped.split(")")[0]) + 1:] if stripped.startswith("(") else stripped
+            params_text = re.search(r"\((.*)\)\s*(?:<[a-z_]+>)*\s*:[^=]*=", header)
+            if params_text:
+                for p in split_params(params_text.group(1)):
+                    if p in names:
+                        report(rel, i + 1, "parameter '%s' reuses a member of %s" % (p, owner))
+            j = i + 1
+            while j < len(lines):
+                body = lines[j]
+                if body.strip():
+                    body_indent = len(body) - len(body.lstrip(" "))
+                    if body_indent <= indent:
+                        break
+                    for m in re.finditer(r"(?:^|[\s(,])(" + IDENT + r")\s*:=", body):
+                        if m.group(1) in names:
+                            report(rel, j + 1, "local '%s' reuses a member of %s" % (m.group(1), owner))
+                    for m in re.finditer(r"for\s*\(\s*(?:(" + IDENT + r")\s*->\s*)?(" + IDENT + r")\s*:", body):
+                        for n in m.groups():
+                            if n and n in names:
+                                report(rel, j + 1, "loop variable '%s' reuses a member of %s" % (n, owner))
+                j += 1
+            i = j if owner != current_class else i + 1
+
+
+def check_type_imports(project, exports, report):
+    """A type written in an annotation (Name:type) must be defined in this
+    project or come from a module the file imports with `using`."""
+    owners = defaultdict(set)  # exported name -> module paths
+    for module, names in exports.items():
+        for n in names:
+            owners[n].add(module)
+    for path, text in project.files.items():
+        rel = os.path.basename(path)
+        usings = set(u.strip() for u in re.findall(r"using\s*\{\s*([^}]+?)\s*\}", text))
+        usings.add("/Verse.org/Verse")
+        clean = "\n".join(strip_comments_and_strings(l) for l in text.split("\n"))
+        # Drop explicitly qualified references such as (/Verse.org/SpatialMath:)vector3.
+        clean = re.sub(r"\(/[^)]*:\)" + IDENT, " ", clean)
+        seen = set()
+        for m in re.finditer(r"(?<![:=])\s*:(?!=)\s*\??((?:\[[^\]]*\])*)(" + IDENT + r")\b", clean):
+            name = m.group(2)
+            if name in seen or name in project.types or name in project.module_names:
+                continue
+            seen.add(name)
+            modules = owners.get(name)
+            if modules and not (modules & usings):
+                report(rel, 0, "type '%s' needs using { %s }" % (name, sorted(modules)[0]))
+
+
+def check_callbacks(project, report):
+    """Only class methods are passed as callbacks (Subscribe(Handler.Method));
+    an extension method is not used as a function value."""
+    ext_names = set()
+    for names in project.ext.values():
+        ext_names |= names
+    for path, text in project.files.items():
+        rel = os.path.basename(path)
+        for lineno, raw in enumerate(text.split("\n"), 1):
+            line = strip_comments_and_strings(raw)
+            for m in re.finditer(r"Subscribe\(\s*(?:" + IDENT + r"\.)?(" + IDENT + r")\s*\)", line):
+                if m.group(1) in ext_names:
+                    report(rel, lineno, "extension method '%s' passed as a callback - forward it from a class method" % m.group(1))
+
+
 def check(project, digest_names, report, exports=None):
     check_member_collisions(project, report)
+    check_member_shadowing(project, report)
+    check_callbacks(project, report)
     if exports:
         check_shadowing(project, exports, report)
+        check_type_imports(project, exports, report)
     known_calls = project.module_names | digest_names | BUILTINS | project.types
     device_members = project.members["sea_beast_game_device"] | project.ext["sea_beast_game_device"]
     ui_members = project.members["player_ui_controller"] | project.ext["player_ui_controller"]

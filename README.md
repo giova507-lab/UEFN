@@ -62,7 +62,21 @@ python3 Tools/verse_check.py --digests <folder with *.digest.verse> Content/Vers
 python3 Tools/verse_effects_check.py --digests <folder with *.digest.verse> Content/Verse
 ```
 
-`verse_check.py` looks for unknown members, missing `using`s, shadowing and indentation problems. `verse_effects_check.py` checks effect specifiers: rollback safety, `<suspends>` outside `spawn`, `<decides>` calls with `[]`, and failure contexts. Neither replaces the real compiler.
+`verse_check.py` looks for:
+
+* unknown members and missing `using`s (types are checked against each digest module's exports);
+* shadowing, meaning parameters, locals or loop variables that reuse a visible name or a member of their class;
+* extension methods passed as callbacks;
+* indentation problems.
+
+`verse_effects_check.py` checks effect specifiers:
+
+* rollback safety;
+* `<suspends>` calls outside `spawn`;
+* `<decides>` calls written with `[]`;
+* failure contexts (`if`/`for` headers, `logic{}`, `option{}`).
+
+Both were validated against real mistakes found in review, but neither replaces the real compiler.
 
 ## Originality
 
