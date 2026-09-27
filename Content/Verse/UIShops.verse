@@ -58,10 +58,10 @@ using { /UnrealEngine.com/Temporary/SpatialMath }
     set UI.SonarRows = for (I := 0..SonarTierCount - 1). MakeLabel("", 18.0, ThemeWhite)
     set UI.SonarInfo = MakeLabel("", 20.0, ThemeCyan)
     Rows : []widget = for (I -> Label : UI.SonarRows):
-        RowItems : []widget = array{Label, MakeActionButton(UI, "BUY", ui_action.BuySonar, I, 1), MakeActionButton(UI, "USE", ui_action.UseSonar, I, 2)}
+        RowItems : []widget = array{Label, MakeActionButton(UI, "BUY", ui_action.BuySonar, I, 1), MakeActionButton(UI, "USE", ui_action.UseSonar, I, 2), MakeActionButton(UI, "AUTO-BUY", ui_action.ToggleSonarAutoBuy, I, 2)}
         MakeHStack(RowItems, 4.0)
     Title : widget = MakeLabel("SONAR SHACK", 28.0, ThemeGold)
-    Note : widget = MakeLabel("A SONAR TRACKS ONE RARITY AND POINTS TO AN EGG THAT ALREADY EXISTS. ONE CHARGE PER USE.", 14.0, ThemeMuted)
+    Note : widget = MakeLabel("A SONAR TRACKS ONE RARITY AND POINTS TO AN EGG THAT ALREADY EXISTS. ONE CHARGE PER USE.\nAUTO-BUY buys that sonar's stock whenever the shop restocks, if you can afford it.", 14.0, ThemeMuted)
     MakeVStackLeft(array{Title, UI.SonarInfo} + Rows + array{Note}, 4.0)
 
 (UI:player_ui_controller).RefreshSonarShop():void =
@@ -70,7 +70,8 @@ using { /UnrealEngine.com/Temporary/SpatialMath }
             Stock := UI.Game.GetSonarStock(Session, Tier)
             Owned := if (N := Session.Profile.SonarInventory[Tier]) then N else 0
             StockText := if (Stock > 0) then "x{Stock} STOCK" else "OUT OF STOCK"
-            SetLabel(Label, "{Def.Name}   TRACKS {RarityName(Def.TracksRarity)}   {FormatCash(Def.Price)}   {StockText}   OWNED x{Owned}")
+            AutoText := if (UI.Game.IsSonarAutoBuyOn[Session, Tier]) then "AUTO-BUY ON" else "AUTO-BUY OFF"
+            SetLabel(Label, "{Def.Name}   TRACKS {RarityName(Def.TracksRarity)}   {FormatCash(Def.Price)}   {StockText}   OWNED x{Owned}   {AutoText}")
             Label.SetTextColor(RarityColor(Def.TracksRarity))
         SetLabel(UI.SonarInfo, "NEW STOCK IN {FormatClock(UI.Game.GetSonarRestockRemaining())}")
 

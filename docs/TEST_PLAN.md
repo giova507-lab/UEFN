@@ -103,10 +103,11 @@ Use DEV → GIVE CREATURE for IDs 1-30 and ride each one.
 | F2 | Sonar activation with no eggs of that tier | "NO <RARITY> SEA EGGS DETECTED…"; no charge used. |
 | F3 | Sonar target claimed by another player | "SIGNAL LOST! SEARCHING…", then it retargets. |
 | F4 | Sonar restock | Timer counts down; stock refreshes. |
+| F4b | Sonar AUTO-BUY | Switching it on buys the current stock you can afford. After a restock, "AUTO-BUY: +N …" appears. It never overspends. The setting persists after rejoining. |
 | F5 | Feeding | XP rises; level-ups raise stats; max level is 100. |
 | F6 | Sell | Price matches the formula; locked, mounted and last creatures are refused; the Deep Dive creature needs confirmation. |
 | F7 | Index milestone | CLAIM pays once; a second claim is impossible. |
-| F8 | Current Tracker | Lists live eggs; sorts by luck and rarity. |
+| F8 | Current Tracker | Lists live eggs with counts; sorts by luck and rarity; never shows locations. |
 
 ## G. Weather, mutations, day/night
 

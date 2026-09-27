@@ -184,7 +184,7 @@ Income/s = Σ placed creature income
 | 4 | Celestial Sonar | Divine | $7M | 1 | 35% |
 | 5 | Leviathan Sonar | Ethereal | $30M | 1 | 15% |
 
-Restock every 300 s. Stock is per player by default (`SharedSonarStock = false`); set it to true for one shared server stock. A sonar only points at eggs that exist and never creates any. Using one spends a charge only if it finds a target. If the target is claimed, it shows SIGNAL LOST and retargets.
+Restock every 300 s. Stock is per player by default (`SharedSonarStock = false`); set it to true for one shared server stock. **AUTO-BUY** (a per-tier toggle saved with the player) buys that tier's stock at every restock, and right away when switched on, as long as the player can afford it (at most `SonarAutoBuyMaxPerRestock` = 20 per tier per restock). A sonar only points at eggs that exist and never creates any. Using one spends a charge only if it finds a target. If the target is claimed, it shows SIGNAL LOST and retargets.
 
 ## Feed Dock (Chef Kelp)
 

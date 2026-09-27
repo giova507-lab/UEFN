@@ -213,7 +213,7 @@ One device per interactable station. Stations register themselves.
 
 | Station (`Station`) | NPC (`NPCName`) | Opens |
 |---|---|---|
-| `CurrentTracker` | MARINA | Current Tracker (world eggs by luck/rarity, set a waypoint) |
+| `CurrentTracker` | MARINA | Current Tracker: which eggs are in the ocean right now, sorted by luck or rarity (never where they are) |
 | `SonarShack` | FINN | Sonar Shop (6 tiers, limited stock, restock timer) |
 | `FeedDock` | CHEF KELP | Feed Dock (5 foods, creature levels) |
 | `HarborTrader` | CAPTAIN PEARL | Harbor Trader (sell creatures) |

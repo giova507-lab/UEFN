@@ -41,6 +41,7 @@ ui_action := enum {
     TrackerNext
     BuySonar
     UseSonar
+    ToggleSonarAutoBuy
     BuyFood
     BuyFood10
     TraderSell

@@ -352,6 +352,7 @@ player_ui_controller := class:
                     RefreshTracker()
                 ui_action.BuySonar => Game.BuySonar(Session, Arg)
                 ui_action.UseSonar => Game.ActivateSonar(Session, Arg)
+                ui_action.ToggleSonarAutoBuy => Game.ToggleSonarAutoBuy(Session, Arg)
                 ui_action.BuyFood => Game.BuyFood(Session, Arg, 1)
                 ui_action.BuyFood10 => Game.BuyFood(Session, Arg, 10)
                 ui_action.TraderSell =>

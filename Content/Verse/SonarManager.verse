@@ -12,6 +12,9 @@ using { /Verse.org/Simulation }
 using { /Verse.org/Random }
 using { /UnrealEngine.com/Temporary/SpatialMath }
 
+# Safety cap on sonars bought automatically per tier and restock.
+SonarAutoBuyMaxPerRestock : int = 20
+
 RollSonarStock()<transacts>:[]int =
     for (Def : SonarDefs):
         if (GetRandomFloat(0.0, 1.0) <= Def.StockChance) then GetRandomInt(Def.StockMin, Def.StockMax) else 0
@@ -33,6 +36,7 @@ RollSonarStock()<transacts>:[]int =
         set G.SonarRestockEnd = G.GetNow() + SonarRestockSeconds
         for (Player -> Session : G.Sessions, Session.Loaded?):
             G.InitSessionSonarStock(Session)
+            G.RunSonarAutoBuy(Session)
             Session.UI.RefreshOpenMenu()
         LogSea("Sonar Shack restocked.")
 
@@ -47,11 +51,7 @@ RollSonarStock()<transacts>:[]int =
             G.PlaySfx(Session, sfx_key.Error)
             return
         if (G.TrySpend[Session, Def.Price]):
-            if (SharedSonarStock?):
-                if (Old := G.GlobalSonarStock[Tier], set G.GlobalSonarStock[Tier] = Old - 1) {}
-            else:
-                if (Old := Session.SonarStock[Tier], set Session.SonarStock[Tier] = Old - 1) {}
-            if (Owned := Session.Profile.SonarInventory[Tier], set Session.Profile.SonarInventory[Tier] = Owned + 1) {}
+            G.TakeSonarFromStock(Session, Tier)
             G.PlaySfx(Session, sfx_key.Purchase)
             G.ShowToast(Session, "BOUGHT {Def.Name}!", ThemeCash)
             Session.UI.RefreshOpenMenu()
@@ -60,6 +60,53 @@ RollSonarStock()<transacts>:[]int =
         else:
             G.ShowToast(Session, "NOT ENOUGH CASH! {Def.Name} COSTS {FormatCash(Def.Price)}.", ThemeDanger)
             G.PlaySfx(Session, sfx_key.Error)
+
+# Moves one sonar of Tier from the shop stock into the player's inventory.
+# Callers have already checked the stock and charged the price.
+(G:sea_beast_game_device).TakeSonarFromStock(Session:player_session, Tier:int):void =
+    if (SharedSonarStock?):
+        if (Old := G.GlobalSonarStock[Tier], set G.GlobalSonarStock[Tier] = Old - 1) {}
+    else:
+        if (Old := Session.SonarStock[Tier], set Session.SonarStock[Tier] = Old - 1) {}
+    if (Owned := Session.Profile.SonarInventory[Tier], set Session.Profile.SonarInventory[Tier] = Owned + 1) {}
+
+# ---------------------------------------------------------------- Auto-Buy -
+(G:sea_beast_game_device).IsSonarAutoBuyOn(Session:player_session, Tier:int)<transacts><decides>:void =
+    Session.Profile.SonarAutoBuy[Tier]?
+
+(G:sea_beast_game_device).ToggleSonarAutoBuy(Session:player_session, Tier:int):void =
+    if (Def := GetSonarDef[Tier]):
+        NewValue := if (G.IsSonarAutoBuyOn[Session, Tier]) then false else true
+        if (set Session.Profile.SonarAutoBuy[Tier] = NewValue) {}
+        StateText := if (NewValue?) then "ON" else "OFF"
+        G.ShowToast(Session, "AUTO-BUY {Def.Name}: {StateText}", ThemeCyan)
+        if (NewValue?):
+            # Also buy what is in stock right now.
+            G.RunSonarAutoBuy(Session)
+        Session.UI.RefreshOpenMenu()
+        G.SaveSession(Session)
+
+# Buys the available stock of every tier with AUTO-BUY on, while the player
+# can afford it. Runs on every restock and when a tier is switched on.
+(G:sea_beast_game_device).RunSonarAutoBuy(Session:player_session):void =
+    var BoughtTotal : int = 0
+    for (Tier -> Enabled : Session.Profile.SonarAutoBuy, Enabled?, Def := GetSonarDef[Tier]):
+        var Bought : int = 0
+        loop:
+            if (G.GetSonarStock(Session, Tier) <= 0 or Bought >= SonarAutoBuyMaxPerRestock):
+                break
+            if (G.TrySpend[Session, Def.Price]):
+                G.TakeSonarFromStock(Session, Tier)
+                set Bought += 1
+            else:
+                break
+        if (Bought > 0):
+            set BoughtTotal += Bought
+            G.ShowToast(Session, "AUTO-BUY: +{Bought} {Def.Name}", ThemeCash)
+    if (BoughtTotal > 0):
+        G.PlaySfx(Session, sfx_key.Purchase)
+        G.RefreshHud(Session)
+        G.SaveSession(Session)
 
 # Nearest active, unreserved egg whose rarity this Sonar tier tracks.
 (G:sea_beast_game_device).FindSonarTarget(Session:player_session, Tier:int)<transacts><decides>:world_egg =

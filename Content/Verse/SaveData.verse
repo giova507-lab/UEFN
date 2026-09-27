@@ -52,6 +52,7 @@ sea_beast_save := class<final><persistable>:
     Incubators : []incubator_save = array{}
     FoodInventory : []int = array{}
     SonarInventory : []int = array{}
+    SonarAutoBuy : []logic = array{}
     CreatureDiscovery : []int = array{}
     EggDiscovery : []logic = array{}
     MutationDiscovery : []logic = array{}
@@ -120,6 +121,8 @@ player_profile := class:
     var Incubators : []incubator_state = array{}
     var FoodInventory : []int = array{}
     var SonarInventory : []int = array{}
+    # Per sonar tier: buy the shop's stock automatically on every restock.
+    var SonarAutoBuy : []logic = array{}
     var CreatureDiscovery : []int = array{}
     var EggDiscovery : []logic = array{}
     var MutationDiscovery : []logic = array{}
@@ -206,6 +209,7 @@ ProfileFromSave(S:sea_beast_save)<transacts>:player_profile =
             incubator_state{}
     set P.FoodInventory = ResizeIntArray(S.FoodInventory, FoodCount, 0)
     set P.SonarInventory = ResizeIntArray(S.SonarInventory, SonarTierCount, 0)
+    set P.SonarAutoBuy = ResizeLogicArray(S.SonarAutoBuy, SonarTierCount, false)
     set P.CreatureDiscovery = ResizeIntArray(S.CreatureDiscovery, CreatureCount, -1)
     set P.EggDiscovery = ResizeLogicArray(S.EggDiscovery, EggCount, false)
     set P.MutationDiscovery = ResizeLogicArray(S.MutationDiscovery, MutationCount, false)
@@ -252,6 +256,7 @@ SaveFromProfile(P:player_profile, IncubatorEpoch:float)<transacts>:sea_beast_sav
             incubator_save{EggTypeID := Inc.EggTypeID, Progress := Inc.Progress, Required := Inc.Required, LastUpdateEpoch := IncubatorEpoch}
         FoodInventory := P.FoodInventory
         SonarInventory := P.SonarInventory
+        SonarAutoBuy := P.SonarAutoBuy
         CreatureDiscovery := P.CreatureDiscovery
         EggDiscovery := P.EggDiscovery
         MutationDiscovery := P.MutationDiscovery
@@ -299,6 +304,7 @@ MakeNewProfile()<transacts>:player_profile =
     set P.Incubators = for (I := 0..IncubatorsPerLagoon - 1). incubator_state{}
     set P.FoodInventory = ResizeIntArray(array{}, FoodCount, 0)
     set P.SonarInventory = ResizeIntArray(array{}, SonarTierCount, 0)
+    set P.SonarAutoBuy = ResizeLogicArray(array{}, SonarTierCount, false)
     set P.CreatureDiscovery = ResizeIntArray(array{}, CreatureCount, -1)
     set P.EggDiscovery = ResizeLogicArray(array{}, EggCount, false)
     set P.MutationDiscovery = ResizeLogicArray(array{}, MutationCount, false)
