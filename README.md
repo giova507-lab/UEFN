@@ -44,6 +44,7 @@ docs/                 Setup, world design, balance, tests, publishing.
 
 | Document | Contents |
 |---|---|
+| [GUIA_RAPIDA_ES.md](docs/GUIA_RAPIDA_ES.md) | Guía rápida en español: compilar, montaje mínimo, primeras pruebas, controles. |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the code is organized, where state lives, loops, data flow, validation rules. |
 | [UEFN_SETUP_GUIDE.md](docs/UEFN_SETUP_GUIDE.md) | Every device to place and every field to fill in. |
 | [CONTENT_BROWSER.md](docs/CONTENT_BROWSER.md) | Content folder structure and the asset list. |
