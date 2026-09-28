@@ -8,6 +8,10 @@
 # ============================================================================
 using { /Verse.org/Simulation }
 
+# Sell presses right after a sale are ignored, so a double-click can never
+# sell a second Sea Beast (the list shifts under the cursor after a sale).
+SellDebounceSeconds : float = 0.6
+
 SellValueFor(C:owned_creature)<transacts>:float =
     if (Def := GetCreatureDef[C.TypeID]):
         LevelFactor := 1.0 + SellLevelBonusPerLevel * ToFloat(Max(0, C.Level - 1))
@@ -37,7 +41,13 @@ SellValueFor(C:owned_creature)<transacts>:float =
     C.TypeID = Next.RequiredCreatureID
     G.CountCreaturesOfType(Session, C.TypeID) <= 1
 
+# Placed, favorite, mutated and Epic-or-rarer Sea Beasts ask before selling.
+(G:sea_beast_game_device).IsValuableCreature(Session:player_session, C:owned_creature)<transacts><decides>:void =
+    G.IsPlaced[Session, C.UniqueID] or C.Favorite? or C.MutationID > 0 or RarityIndex(CreatureRarity(C.TypeID)) >= RarityIndex(beast_rarity.Epic)
+
 (G:sea_beast_game_device).RequestSell(Session:player_session, UID:int):void =
+    if (G.GetNow() - Session.LastSellTime < SellDebounceSeconds):
+        return
     Reason := G.GetSellBlockReason(Session, UID)
     if (Reason <> ""):
         G.ShowToast(Session, Reason, ThemeDanger)
@@ -46,6 +56,10 @@ SellValueFor(C:owned_creature)<transacts>:float =
     if (G.IsRequiredForNextDeepDive[Session, UID]):
         set Session.PendingSellUID = UID
         Session.UI.ShowConfirm("THIS SEA BEAST IS REQUIRED FOR YOUR NEXT DEEP DIVE.\nSELL ANYWAY?", confirm_action.SellRequired)
+        return
+    if (C := G.FindCreature[Session, UID], G.IsValuableCreature[Session, C]):
+        set Session.PendingSellUID = UID
+        Session.UI.ShowConfirm("SELL {CreatureName(C.TypeID)} (LV {C.Level}) FOR {FormatCash(SellValueFor(C))}?", confirm_action.SellRequired)
         return
     G.ExecuteSell(Session, UID)
 
@@ -63,6 +77,7 @@ SellValueFor(C:owned_creature)<transacts>:float =
         return
     if (C := G.FindCreature[Session, UID]):
         Value := SellValueFor(C)
+        set Session.LastSellTime = G.GetNow()
         G.RemoveOwnedCreature(Session, UID)
         G.AddCash(Session, Value)
         set Session.Profile.CreaturesSold += 1
@@ -83,20 +98,24 @@ SellValueFor(C:owned_creature)<transacts>:float =
             set P.ActiveMountID = First.UniqueID
 
 # Duplicates = every copy of a species except the best one, skipping
-# favorites, locked, placed, mounted and required-for-next-Deep-Dive copies.
+# favorites, locked, placed, mutated, the selected ride and
+# required-for-next-Deep-Dive copies (mutations do not change income, so a
+# mutated copy is never treated as a spare).
 (G:sea_beast_game_device).GetSellableDuplicates(Session:player_session)<transacts>:[]owned_creature =
     Sorted := SortCreatures(Session.Profile.Creatures, creature_sort.BestIncome)
     var KeptTypes : []int = array{}
     var Result : []owned_creature = array{}
     for (C : Sorted):
         if (KeptTypes.Find[C.TypeID]):
-            if (not C.Favorite?, not C.Locked?, not G.IsPlaced[Session, C.UniqueID], G.GetSellBlockReason(Session, C.UniqueID) = ""):
+            if (not C.Favorite?, not C.Locked?, C.MutationID = 0, C.UniqueID <> Session.Profile.ActiveMountID, not G.IsPlaced[Session, C.UniqueID], G.GetSellBlockReason(Session, C.UniqueID) = ""):
                 set Result += array{C}
         else:
             set KeptTypes += array{C.TypeID}
     Result
 
 (G:sea_beast_game_device).RequestSellAllDuplicates(Session:player_session):void =
+    if (G.GetNow() - Session.LastSellTime < SellDebounceSeconds):
+        return
     Duplicates := G.GetSellableDuplicates(Session)
     if (Duplicates.Length = 0):
         G.ShowToast(Session, "NO DUPLICATES TO SELL.", ThemeMuted)
@@ -104,7 +123,7 @@ SellValueFor(C:owned_creature)<transacts>:float =
     var Total : float = 0.0
     for (C : Duplicates):
         set Total += SellValueFor(C)
-    Session.UI.ShowConfirm("SELL {Duplicates.Length} DUPLICATE SEA BEASTS FOR {FormatCash(Total)}?", confirm_action.SellDuplicates)
+    Session.UI.ShowConfirm("SELL {Duplicates.Length} DUPLICATE SEA BEASTS FOR {FormatCash(Total)}?\n(PLACED, LOCKED, FAVORITE, MUTATED AND YOUR SELECTED RIDE ARE KEPT)", confirm_action.SellDuplicates)
 
 (G:sea_beast_game_device).ExecuteSellAllDuplicates(Session:player_session):void =
     Duplicates := G.GetSellableDuplicates(Session)
@@ -115,6 +134,7 @@ SellValueFor(C:owned_creature)<transacts>:float =
         G.RemoveOwnedCreature(Session, C.UniqueID)
         set Count += 1
     if (Count > 0):
+        set Session.LastSellTime = G.GetNow()
         G.AddCash(Session, Total)
         set Session.Profile.CreaturesSold += Count
         G.PlaySfx(Session, sfx_key.Selling)

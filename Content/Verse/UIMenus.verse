@@ -167,11 +167,10 @@ MakeIndexCard():index_card =
         set UI.Page = Clamp(UI.Page, 0, PageCount - 1)
         Start := UI.Page * PerPage
         set UI.VisibleUIDs = for (I := 0..PerPage - 1, C := List[Start + I]). C.UniqueID
+        # Never jump to another Sea Beast when the selected one is gone (after
+        # a sale): a second SELL press must not sell a different creature.
         if (not UI.Game.FindCreature[Session, UI.SelectedUID]):
-            if (First := List[0]):
-                set UI.SelectedUID = First.UniqueID
-            else if (Any := P.Creatures[0]):
-                set UI.SelectedUID = Any.UniqueID
+            set UI.SelectedUID = 0
         for (I -> Card : UI.Cards):
             if (C := List[Start + I]):
                 Card.Fill(UI.CardName(C), UI.CardInfo(C), UI.CardBadges(Session, C), RarityColor(CreatureRarity(C.TypeID)), logic{C.UniqueID = UI.SelectedUID})

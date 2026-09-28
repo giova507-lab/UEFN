@@ -37,6 +37,8 @@ RollCreatureFromEgg(EggID:int, HatchLuck:float, MinCreatureID:int)<transacts>:in
     if (Session.HatchingIncubator >= 0):
         G.ShowToast(Session, "ALREADY HATCHING!", ThemeMuted)
         return
+    if (Session.DeepDiveRunning? or Session.IntroRunning?):
+        return
     P := Session.Profile
     # Keeps the save within the per-player persistence budget.
     if (P.Creatures.Length >= MaxCreatureInventory):
@@ -63,12 +65,11 @@ RollCreatureFromEgg(EggID:int, HatchLuck:float, MinCreatureID:int)<transacts>:in
         G.UpdateIncubatorSign(Session, Index)
         spawn{ G.RunHatchSequence(Session, Index, NewCreature, IsNew) }
 
-# Completes when the player leaves (their session is unloaded).
+# Completes when the player leaves (OnPlayerRemoved signals Ended and then
+# unloads the session, so a late caller returns at once).
 (G:sea_beast_game_device).AwaitSessionEnd(Session:player_session)<suspends>:void =
-    loop:
-        if (not Session.Loaded?):
-            break
-        Sleep(0.25)
+    if (Session.Loaded?):
+        Session.Ended.Await()
 
 (G:sea_beast_game_device).TrackHatchAnalytics(Session:player_session, TypeID:int):void =
     G.TrackFirst(Session, analytics_key.FirstHatch)
@@ -110,7 +111,10 @@ RollCreatureFromEgg(EggID:int, HatchLuck:float, MinCreatureID:int)<transacts>:in
                     G.PlaySfx(Session, HatchSfxForRarity(R))
                     Sleep(0.4 + 0.2 * ToFloat(Tier))
                     # 5. The egg bursts with a rarity colored explosion.
-                    Lagoon.BurstIncubatorEgg(Index)
+                    # (Lagoon calls check Loaded: if the player just left,
+                    # the Lagoon may already belong to someone else.)
+                    if (Session.Loaded?):
+                        Lagoon.BurstIncubatorEgg(Index)
                     G.PlayVfxAt(HatchVfxForRarity(R), EggPosition)
                     if (Tier >= RarityIndex(beast_rarity.Legendary)):
                         G.PlayCameraShake(Session, logic{Tier >= RarityIndex(beast_rarity.Divine)})
@@ -118,7 +122,7 @@ RollCreatureFromEgg(EggID:int, HatchLuck:float, MinCreatureID:int)<transacts>:in
                     Session.UI.ShowHatchSilhouette(TypeID)
                     Sleep(0.9)
                     # 7-10. Reveal, rarity, stats, NEW DISCOVERY.
-                    if (Asset := G.GetCreatureDisplayAsset[TypeID]):
+                    if (Session.Loaded?, Asset := G.GetCreatureDisplayAsset[TypeID]):
                         spawn{ Lagoon.PlayHatchReveal(Index, Asset, G.GetCreatureVisualScale(TypeID)) }
                     Session.UI.ShowHatchReveal(NewCreature, IsNew)
                     Sleep(3.0 + 0.4 * ToFloat(Tier))

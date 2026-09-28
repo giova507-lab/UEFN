@@ -113,6 +113,9 @@ Use DEV → GIVE CREATURE for IDs 1-30 and ride each one.
 | F4b | Sonar AUTO-BUY | Switching it on buys the current stock you can afford. After a restock, "AUTO-BUY: +N …" appears. It never overspends. The setting persists after rejoining. |
 | F5 | Feeding | XP rises; level-ups raise stats; max level is 100. |
 | F6 | Sell | Price matches the formula; locked, mounted and last creatures are refused; the Deep Dive creature needs confirmation. |
+| F6b | Sell safety | Placed, favorite, mutated and Epic+ Sea Beasts ask for confirmation. Double-clicking SELL (menu or Trader) sells one creature only. After a sale nothing else is auto-selected. SELL ALL DUPLICATES keeps placed, locked, favorite and mutated copies and the selected ride. |
+| F4c | Sonar stock and rejoin | Leaving and rejoining within 5 minutes shows the same shop stock (no re-roll). |
+| F4d | USE with a sonar already running | The same tier says it is already tracking and spends nothing; another tier replaces it. |
 | F7 | Index milestone | CLAIM pays once; a second claim is impossible. |
 | F8 | Current Tracker | Lists live eggs with counts; sorts by luck and rarity; never shows locations. |
 
@@ -174,6 +177,9 @@ Use DEV → GIVE CREATURE for IDs 1-30 and ride each one.
 | K10 | Deliver an egg while a hatch cinematic plays | The egg goes to another free incubator, never the hatching one. With none free, "ALL INCUBATORS ARE FULL!" appears at most every 6 s. |
 | K11 | Own 300 Sea Beasts, then hatch | Refused with "YOUR COLLECTION IS FULL…"; the egg stays ready in the incubator. |
 | K12 | New player picks up a public egg during the tutorial | The tutorial continues. Their personal tutorial egg is removed when the tutorial completes or when they leave. |
+| K13 | Press a READY incubator or open a menu during a Deep Dive or the intro | Nothing happens; the sequence plays undisturbed. |
+| K14 | During the tutorial, fill all four incubators before the first hatch | Only one egg becomes quick (20 s); the others keep their normal time. |
+| K15 | Reconnect after 30 s with eggs incubating | Incubation progressed by those 30 s (no offline income popup under 60 s). |
 
 ## L. Performance
 

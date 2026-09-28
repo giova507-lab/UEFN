@@ -158,7 +158,7 @@ UpgradeCost(n)   = 25 × 1.035^n        (n = upgrades already bought)
 | 500 | 901x | $738M |
 | 600 | 1,081x | $23B |
 
-`HatchLuckBaseCost` and `HatchLuckCostGrowth` are the only two cost knobs. BUY MAX buys upgrades one at a time with the same formula until the player can't afford the next one (at most 1,000 per press). The board's `MAX` line and the BUY MAX prompt show how many that is and the total price. They are computed with the same function, so what is shown is what is charged.
+`HatchLuckBaseCost` and `HatchLuckCostGrowth` are the only two cost knobs. BUY MAX buys upgrades one at a time with the same formula until the player can't afford the next one (at most 1,000 per press). The board's `MAX` line and the BUY MAX prompt show how many that is and the total price. They use the same function as the purchase and refresh every second and after every purchase, sale or claim.
 
 ## Economy
 

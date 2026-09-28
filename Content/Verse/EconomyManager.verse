@@ -55,7 +55,10 @@ IncomePopupEveryTicks : int = 3
             G.AddCash(Session, Income * EconomyTickSeconds)
             if (ShowPopups?, Income > 0.0):
                 Session.UI.ShowIncomePopup(Income * EconomyTickSeconds * ToFloat(IncomePopupEveryTicks))
-            # Lagoon income signs are refreshed every 5 ticks.
+            # Lagoon income signs are refreshed every 5 ticks; the Hatch Luck
+            # board (its MAX line depends on cash) every tick.
             if (ModInt(TickCount, 5) = 0):
                 G.RefreshLagoonSigns(Session)
+            else:
+                G.RefreshHatchLuckSign(Session)
             Session.UI.RefreshCash()

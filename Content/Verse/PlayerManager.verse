@@ -19,6 +19,12 @@ using { /UnrealEngine.com/Temporary/UI }
     Player := player[Agent]
     G.Sessions[Player]
 
+# Succeeds while the player is in a cinematic sequence (intro, hatch or Deep
+# Dive). Menus and other sequences wait until it is over, so two sequences
+# never share the overlay or the Lagoon cameras.
+(G:sea_beast_game_device).IsInSequence(Session:player_session)<transacts><decides>:void =
+    Session.IntroRunning? or Session.DeepDiveRunning? or Session.HatchingIncubator >= 0
+
 (G:sea_beast_game_device).OnPlayerAdded(Player:player):void =
     spawn{ G.HandlePlayerJoin(Player) }
 
@@ -70,6 +76,9 @@ using { /UnrealEngine.com/Temporary/UI }
 
 (G:sea_beast_game_device).OnPlayerRemoved(Player:player):void =
     if (Session := G.Sessions[Player]):
+        # Running sequences (hatch, Deep Dive) stop before the Lagoon is
+        # handed to anyone else.
+        Session.Ended.Signal()
         # The player is no longer active, so their save cannot be written
         # now - autosave and event saves keep it current while they play.
         G.ForceDismount(Session)

@@ -36,13 +36,20 @@ TutorialPollSeconds : float = 0.5
         set Found = true
     Found?
 
-# Before a player's first hatch, no incubating egg needs more than the
-# tutorial incubation time.
+# Before a player's first hatch, ONE incubating egg (the closest to hatching)
+# is shortened to the tutorial incubation time, unless an egg is already
+# that close. Only one: the tutorial must not speed up other eggs.
 (G:sea_beast_game_device).CapFirstHatchTime(Session:player_session):void =
-    if (Session.Profile.TotalHatches = 0):
-        for (I -> Incubator : Session.Profile.Incubators, Incubator.EggTypeID > 0, Incubator.Required - Incubator.Progress > TutorialIncubationSeconds):
+    P := Session.Profile
+    if (P.TotalHatches = 0):
+        var BestIndex : int = -1
+        var BestRemaining : float = 1000000000.0
+        for (I -> Incubator : P.Incubators, Incubator.EggTypeID > 0, Incubator.Required - Incubator.Progress < BestRemaining):
+            set BestIndex = I
+            set BestRemaining = Incubator.Required - Incubator.Progress
+        if (BestIndex >= 0, BestRemaining > TutorialIncubationSeconds, Incubator := P.Incubators[BestIndex]):
             set Incubator.Required = Incubator.Progress + TutorialIncubationSeconds
-            G.UpdateIncubatorSign(Session, I)
+            G.UpdateIncubatorSign(Session, BestIndex)
 
 (G:sea_beast_game_device).RunTutorial(Session:player_session)<suspends>:void =
     set Session.TutorialTaskRunning = true

@@ -27,7 +27,7 @@ using { /Verse.org/Simulation }
         "MAX DEEP DIVE REACHED\nMONEY x{FormatCompact(P.PermanentMoneyMultiplier)}"
 
 (G:sea_beast_game_device).RequestDeepDive(Session:player_session):void =
-    if (Session.DeepDiveRunning?):
+    if (G.IsInSequence[Session]):
         return
     if (not GetNextDeepDive[Session.Profile.DeepDiveCount]):
         G.ShowToast(Session, "YOU HAVE REACHED THE DEEPEST DEPTHS!", ThemeGold)
@@ -39,7 +39,7 @@ using { /Verse.org/Simulation }
         G.PlaySfx(Session, sfx_key.Error)
 
 (G:sea_beast_game_device).ExecuteDeepDive(Session:player_session):void =
-    if (Session.DeepDiveRunning?):
+    if (G.IsInSequence[Session]):
         return
     P := Session.Profile
     if (Next := GetNextDeepDive[P.DeepDiveCount], G.IsDeepDiveReady[Session]):
@@ -52,6 +52,7 @@ using { /Verse.org/Simulation }
         NewSlots := G.GetLagoonSlots(Session)
         G.TrackFirst(Session, analytics_key.FirstDeepDive)
         G.SaveSession(Session)
+        set Session.DeepDiveRunning = true
         spawn{ G.RunDeepDiveSequence(Session, OldMultiplier, P.PermanentMoneyMultiplier, OldSlots, NewSlots) }
     else:
         G.ShowToast(Session, "NOT READY FOR THE DEEP DIVE YET.", ThemeDanger)
@@ -68,22 +69,31 @@ using { /Verse.org/Simulation }
         G.PlayVfxAt(vfx_key.DeepDiveWave, Lagoon.GetCenter())
         G.PlayCameraShake(Session, true)
         Session.UI.ShowDeepDiveTransition()
-        Sleep(1.4)
-        # The screen transitions underwater; a leviathan silhouette passes.
-        for (Post : G.UnderwaterPostProcess):
-            Post.BlendIn(Session.Player)
-        for (Sequence : G.DeepDiveCinematic):
-            Sequence.Play(Session.Player)
-        Sleep(3.2)
-        Session.UI.ShowDeepDiveComplete(OldMultiplier, NewMultiplier, OldSlots, NewSlots)
-        Sleep(4.5)
+        race:
+            block:
+                Sleep(1.4)
+                # The screen transitions underwater; a leviathan silhouette passes.
+                for (Post : G.UnderwaterPostProcess):
+                    Post.BlendIn(Session.Player)
+                for (Sequence : G.DeepDiveCinematic):
+                    Sequence.Play(Session.Player)
+                Sleep(3.2)
+                Session.UI.ShowDeepDiveComplete(OldMultiplier, NewMultiplier, OldSlots, NewSlots)
+                Sleep(4.5)
+            # Stop at once if the player leaves (the dive is already saved).
+            G.AwaitSessionEnd(Session)
         for (Sequence : G.DeepDiveCinematic):
             Sequence.Stop(Session.Player)
         for (Post : G.UnderwaterPostProcess):
             Post.BlendOut(Session.Player)
         Lagoon.ReleaseDeepDiveCamera(Session.Player)
-        Session.UI.HideDeepDiveOverlay()
+        if (Session.Loaded?):
+            # Finish the fade before the sequence counts as over, so nothing
+            # else can show an overlay that this fade would then hide.
+            Session.UI.FadeOutAndHide()
     set Session.DeepDiveRunning = false
+    if (not Session.Loaded?):
+        return
     G.RefreshLagoon(Session)
     G.RefreshHud(Session)
     Session.UI.RefreshOpenMenu()

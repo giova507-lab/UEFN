@@ -179,6 +179,9 @@ player_ui_controller := class:
         Hud.ExpireMessages(Now)
         if (OpenScreen = menu_screen.Tracker or OpenScreen = menu_screen.SonarShop):
             RefreshStationTimers()
+        else if (OpenScreen = menu_screen.DeepDive):
+            # Cash keeps growing: READY must appear without reopening.
+            Self.RefreshDeepDive()
 
     ShowToast(Text:string, TextColor:color):void =
         Hud.PushToast(Text, TextColor, Game.GetNow())
@@ -222,8 +225,15 @@ player_ui_controller := class:
             return
         if (Screen = menu_screen.Debug and not Game.IsDeveloperSession[]):
             return
+        if (Session := GetMySession[], Game.IsInSequence[Session]):
+            # No menus over the intro, a hatch or a Deep Dive (from any
+            # button: Reload, Lagoon buttons or hub stations).
+            return
         if (not MenuBuilt?):
             Self.BuildMenus()
+        # Opening SEA BEASTS with nothing selected shows the current ride.
+        if (Screen = menu_screen.SeaBeasts, Session := GetMySession[], not Game.FindCreature[Session, SelectedUID]):
+            set SelectedUID = Session.Profile.ActiveMountID
         set OpenScreen = Screen
         IsStation := logic{Screen = menu_screen.Tracker or Screen = menu_screen.SonarShop or Screen = menu_screen.FeedDock or Screen = menu_screen.Trader}
         ShowWidget(TabRow, if (IsStation?) then false else true)
@@ -420,6 +430,8 @@ player_ui_controller := class:
                 Game.ReleaseCarryEffect(Session)
             else:
                 Game.ApplyEnvironmentForPlayer(Session)
+                if (Carried := Session.Carried[0]):
+                    Game.ShowCarryEffect(Session, EggRarity(Carried.EggTypeID))
         else if (Index = 6):
             set P.ThrottleToggle = if (P.ThrottleToggle?) then false else true
             set Session.CruiseOn = false

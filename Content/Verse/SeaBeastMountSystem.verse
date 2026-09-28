@@ -63,6 +63,9 @@ seat_exit_handler := class:
         LogSeaWarning("Could not move an object to ParkingLocation - move it inside the island bounds on the game device.")
 
 (G:sea_beast_game_device).ParkRig(Rig:mount_rig_setup):void =
+    # A parked chair is disabled so nobody can sit in it; AttachRider enables
+    # it again for the next ride.
+    Rig.Seat.Disable()
     G.ParkObject(Rig.Seat)
     for (Saddle : Rig.Saddle):
         G.ParkObject(Saddle)
@@ -216,7 +219,8 @@ seat_exit_handler := class:
                 break
             set Attempt += 1
         if (Session.Mount.Generation <> Generation):
-            if (Rig.Seat.IsSeated[Session.Player]):
+            # Undo only when no newer ride is seating the player in this chair.
+            if (Session.Mount.State = mount_state.Dismounted, Rig.Seat.IsSeated[Session.Player]):
                 Rig.Seat.EnableExit()
                 Rig.Seat.Eject(Session.Player)
                 G.MoveRiderToExit(Session)
@@ -273,12 +277,35 @@ seat_exit_handler := class:
 
 (G:sea_beast_game_device).CleanupRig(Session:player_session):void =
     M := Session.Mount
+    RigIndex := M.RigIndex
+    TypeID := M.TypeID
+    Slot := M.VisualSlot
     G.ReleaseMountVisual(Session)
     if (Rig := G.GetRig[Session]):
         G.ParkRig(Rig)
     if (set G.RigUsers[M.RigIndex] = NoPlayer()) {}
     set M.RigIndex = -1
     set M.WakeOn = false
+    # MoveTo segments started during the last tick may still be running and
+    # could carry parked objects back; park again once they are over.
+    spawn{ G.ReparkAfterMoves(RigIndex, TypeID, Slot) }
+
+# Parks the rig and the creature visuals of a finished ride a second time,
+# after in-flight MoveTo segments ended - but only what nobody uses now.
+(G:sea_beast_game_device).ReparkAfterMoves(RigIndex:int, TypeID:int, Slot:int)<suspends>:void =
+    Sleep(MountTickSeconds + MountMoveLeadSeconds + 0.1)
+    if (Rig := G.MountRigs[RigIndex], not G.RigUsers[RigIndex]?):
+        G.ParkRig(Rig)
+    if (Slot >= 0, Entry := G.GetCreatureVisual[TypeID]):
+        for (Variant := 0..2, Device := G.GetVariantDevice[Entry, Slot, Variant], not G.IsVisualActive[TypeID, Slot, Variant]):
+            G.ParkObject(Device)
+
+# Succeeds when a current ride shows the animated device (TypeID, Slot, Variant).
+(G:sea_beast_game_device).IsVisualActive(TypeID:int, Slot:int, Variant:int)<transacts><decides>:void =
+    var Found : logic = false
+    for (Player -> Other : G.Sessions, Other.Mount.State <> mount_state.Dismounted, Other.Mount.TypeID = TypeID, Other.Mount.VisualSlot = Slot, Other.Mount.VisualVariant = Variant):
+        set Found = true
+    Found?
 
 # The player left the chair by themselves (or was removed by the game).
 (G:sea_beast_game_device).OnSeatExited(RigIndex:int, Agent:agent):void =
@@ -346,12 +373,20 @@ seat_exit_handler := class:
         Desired := if (M.Mode <> swim_mode.Airborne and SpeedFraction < 0.12) then VisualVariantIdle else if (Session.BoostOn? and SpeedFraction > 0.85) then VisualVariantFast else VisualVariantSwim
         if (Desired <> M.VisualVariant, NewDevice := G.GetVariantDevice[Entry, M.VisualSlot, Desired]):
             Transform := G.GetVisualTransform(Session)
+            OldVariant := M.VisualVariant
             if (OldDevice := G.GetActiveVisualDevice[Session]):
                 OldDevice.Pause()
                 G.ParkObject(OldDevice)
             if (NewDevice.TeleportTo[Transform]) {}
             NewDevice.Play()
             set M.VisualVariant = Desired
+            # The old variant may still be finishing a MoveTo toward the beast.
+            spawn{ G.ReparkVariantLater(M.TypeID, M.VisualSlot, OldVariant) }
+
+(G:sea_beast_game_device).ReparkVariantLater(TypeID:int, Slot:int, Variant:int)<suspends>:void =
+    Sleep(MountTickSeconds + MountMoveLeadSeconds + 0.1)
+    if (Entry := G.GetCreatureVisual[TypeID], Device := G.GetVariantDevice[Entry, Slot, Variant], not G.IsVisualActive[TypeID, Slot, Variant]):
+        G.ParkObject(Device)
 
 # ---------------------------------------------------------------- Loop -----
 (G:sea_beast_game_device).RunMountLoop(Session:player_session, Generation:int)<suspends>:void =

@@ -53,6 +53,10 @@ sea_beast_save := class<final><persistable>:
     FoodInventory : []int = array{}
     SonarInventory : []int = array{}
     SonarAutoBuy : []logic = array{}
+    # Personal shop stock and when it was rolled (seconds since epoch), so
+    # leaving and rejoining cannot re-roll the Sonar Shack.
+    SonarStock : []int = array{}
+    SonarStockEpoch : float = 0.0
     CreatureDiscovery : []int = array{}
     EggDiscovery : []logic = array{}
     MutationDiscovery : []logic = array{}
@@ -123,6 +127,8 @@ player_profile := class:
     var SonarInventory : []int = array{}
     # Per sonar tier: buy the shop's stock automatically on every restock.
     var SonarAutoBuy : []logic = array{}
+    var SonarStock : []int = array{}
+    var SonarStockEpoch : float = 0.0
     var CreatureDiscovery : []int = array{}
     var EggDiscovery : []logic = array{}
     var MutationDiscovery : []logic = array{}
@@ -210,6 +216,8 @@ ProfileFromSave(S:sea_beast_save)<transacts>:player_profile =
     set P.FoodInventory = ResizeIntArray(S.FoodInventory, FoodCount, 0)
     set P.SonarInventory = ResizeIntArray(S.SonarInventory, SonarTierCount, 0)
     set P.SonarAutoBuy = ResizeLogicArray(S.SonarAutoBuy, SonarTierCount, false)
+    set P.SonarStock = S.SonarStock
+    set P.SonarStockEpoch = S.SonarStockEpoch
     set P.CreatureDiscovery = ResizeIntArray(S.CreatureDiscovery, CreatureCount, -1)
     set P.EggDiscovery = ResizeLogicArray(S.EggDiscovery, EggCount, false)
     set P.MutationDiscovery = ResizeLogicArray(S.MutationDiscovery, MutationCount, false)
@@ -257,6 +265,8 @@ SaveFromProfile(P:player_profile, IncubatorEpoch:float)<transacts>:sea_beast_sav
         FoodInventory := P.FoodInventory
         SonarInventory := P.SonarInventory
         SonarAutoBuy := P.SonarAutoBuy
+        SonarStock := P.SonarStock
+        SonarStockEpoch := P.SonarStockEpoch
         CreatureDiscovery := P.CreatureDiscovery
         EggDiscovery := P.EggDiscovery
         MutationDiscovery := P.MutationDiscovery
@@ -292,6 +302,16 @@ MigrateProfile(P:player_profile)<transacts>:void =
         set P.DataVersion = 1
     # Derived values are always recomputed from the source of truth.
     set P.PermanentMoneyMultiplier = PermanentMultiplierForDives(P.DeepDiveCount)
+    # Hardening: new creatures must never reuse an existing unique ID, and a
+    # creature is placed at most once.
+    var HighestUID : int = 0
+    for (C : P.Creatures, C.UniqueID > HighestUID):
+        set HighestUID = C.UniqueID
+    set P.UniqueCreatureCounter = Max(P.UniqueCreatureCounter, HighestUID)
+    var UniquePlaced : []int = array{}
+    for (UID : P.PlacedCreatureIDs, not UniquePlaced.Find[UID]):
+        set UniquePlaced += array{UID}
+    set P.PlacedCreatureIDs = UniquePlaced
     set P.DataVersion = CurrentDataVersion
 
 # Creates the profile for a brand new player (starter Sea Slug is granted by

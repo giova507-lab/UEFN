@@ -137,7 +137,8 @@ Exactly one creature per hatch. The first-ever hatch uses `FirstHatchMinCreature
 | Place egg | Owner, incubator empty, egg in basket and not cracked |
 | Hatch | Owner, incubator ready, not already hatching |
 | Buy (sonar, food, luck) | Stock (sonar), price from the central formula, atomic `TrySpend` |
-| Sell | Creature exists, not locked, not being ridden, not the player's last creature. Selling the last copy of the creature the next Deep Dive requires asks for confirmation. Everything is re-checked when the sale executes. |
+| Sell | Creature exists, not locked, not being ridden, not the player's last creature. Placed, favorite, mutated and Epic+ creatures, and the last copy the next Deep Dive requires, ask for confirmation. Presses within 0.6 s of a sale are ignored. Everything is re-checked when the sale executes. |
+| Sequences | Hatch, Deep Dive, intro and menus never overlap (`IsInSequence`). A leaving player's running sequence stops at once (`Ended` event), before the Lagoon can be reassigned. |
 | Place / remove | Creature exists, slot limit from `SlotsForDives` |
 | Deep Dive | Cash requirement, owns the required creature (checked, not consumed), confirmation |
 | Debug commands | `DeveloperToolsEnabled` and session environment ≠ Live |

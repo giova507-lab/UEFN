@@ -44,16 +44,20 @@ using { /Verse.org/Simulation }
         return
     Now := GetSecondsSinceEpoch()
     Elapsed := Now - P.LastSeenEpoch
-    if (P.LastSeenEpoch <= 0.0 or Elapsed < OfflineMinimumSeconds):
+    if (P.LastSeenEpoch <= 0.0 or Elapsed <= 0.0):
+        return
+    # Eggs keep incubating in real time while away (base speed), even after
+    # a quick reconnect.
+    for (Incubator : P.Incubators, Incubator.EggTypeID > 0):
+        set Incubator.Progress = MinF(Incubator.Required, Incubator.Progress + Elapsed * OfflineIncubationMultiplier)
+    # The minimum absence only applies to the offline income popup.
+    if (Elapsed < OfflineMinimumSeconds):
         return
     CapSeconds := OfflineIncomeCapHours * 3600.0
     IncomeSeconds := MinF(Elapsed, CapSeconds)
     Reward := P.IncomeSnapshot * IncomeSeconds * OfflineIncomeEfficiency
     if (Reward > 0.0):
         set P.PendingOfflineReward += Reward
-    # Eggs keep incubating in real time while away (base speed).
-    for (Incubator : P.Incubators, Incubator.EggTypeID > 0):
-        set Incubator.Progress = MinF(Incubator.Required, Incubator.Progress + Elapsed * OfflineIncubationMultiplier)
     LogSea("Offline progress: {FormatDuration(Elapsed)} away.")
 
 (G:sea_beast_game_device).ClaimOfflineReward(Session:player_session):void =

@@ -37,6 +37,9 @@ using { /UnrealEngine.com/Temporary/SpatialMath }
 # ---------------------------------------------------------------- Messages -
 (G:sea_beast_game_device).RefreshHud(Session:player_session):void =
     Session.UI.RefreshHud()
+    # Purchases, sales and claims all refresh the HUD; the Hatch Luck board's
+    # MAX line follows the same cash.
+    G.RefreshHatchLuckSign(Session)
 
 (G:sea_beast_game_device).ShowToast(Session:player_session, Text:string, TextColor:color):void =
     Session.UI.ShowToast(Text, TextColor)

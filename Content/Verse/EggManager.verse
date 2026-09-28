@@ -197,6 +197,8 @@ EggWatchTickSeconds : float = 0.2
     if (RarityIndex(EggRarity(Egg.EggTypeID)) >= RarityIndex(beast_rarity.Mythic)):
         G.AnnounceGlobalAgent(Session.Player, EggName(Egg.EggTypeID), true)
     G.RefreshHud(Session)
+    # Keeps the egg discovery (Ocean Index) and "first" analytics flags.
+    G.SaveSession(Session)
     for (Player -> Other : G.Sessions):
         Other.UI.RefreshTrackerIfOpen()
 
@@ -270,7 +272,7 @@ EggWatchTickSeconds : float = 0.2
         G.PlayVfxAt(vfx_key.EggCrackBurst, Center)
     Session.UI.ShowBigMessage("YOUR SEA EGG CRACKED!", ThemeDanger)
     G.Track(Session, analytics_key.EggLost)
-    if (Carried.IsTutorial?):
+    if (Carried.IsTutorial?, not Session.Profile.TutorialComplete?):
         # Never soft-lock onboarding: give the new player another try.
         G.SpawnTutorialEgg(Session)
     G.RefreshHud(Session)

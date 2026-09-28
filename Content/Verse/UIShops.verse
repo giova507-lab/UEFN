@@ -135,4 +135,4 @@ using { /UnrealEngine.com/Temporary/SpatialMath }
         var Total : float = 0.0
         for (C : Duplicates):
             set Total += SellValueFor(C)
-        SetLabel(UI.TraderInfo, "PAGE {UI.TraderPage + 1}/{PageCount}   DUPLICATES: {Duplicates.Length} ({FormatCash(Total)})   CASH {FormatCash(Session.Profile.Cash)}")
+        SetLabel(UI.TraderInfo, "PAGE {UI.TraderPage + 1}/{PageCount}   SELLABLE DUPLICATES: {Duplicates.Length} ({FormatCash(Total)})")

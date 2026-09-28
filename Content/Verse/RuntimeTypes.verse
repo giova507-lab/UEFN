@@ -90,6 +90,8 @@ player_session := class:
     var Profile : player_profile = player_profile{}
     var LagoonIndex : int = -1
     var Loaded : logic = false
+    # Signaled when the player leaves, before their Lagoon is released.
+    Ended : event() = event(){}
     var JoinTime : float = 0.0
     var LastSaveTime : float = 0.0
     var Carried : []carried_egg = array{}
@@ -107,8 +109,7 @@ player_session := class:
     var AnalogLastTime : float = -100.0
     var InputRegistered : logic = false
     var IsTouch : logic = false
-    # ---- Sonar ----
-    var SonarStock : []int = array{}
+    # ---- Sonar (the personal shop stock lives in the saved profile) ----
     var ActiveSonarTier : int = -1
     var SonarTargetUID : int = 0
     var SonarStartTime : float = 0.0
@@ -133,6 +134,8 @@ player_session := class:
     var CarryEffectRarity : int = -1
     # ---- Last "all incubators full" warning (throttles the toast) ----
     var LastFullIncubatorWarning : float = -100.0
+    # ---- Last sale (debounces sell presses) ----
+    var LastSellTime : float = -100.0
 
 # Result of a hatch roll.
 hatch_result := struct:

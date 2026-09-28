@@ -382,14 +382,16 @@ lagoon_device := class(creative_device):
             Base := IncubatorEggTransform(Index)
             var Step : int = 0
             loop:
-                if (Step >= 12):
+                # The prop can be disposed mid-shake (owner left, Lagoon reset).
+                if (Step >= 12 or not Prop.IsValid[]):
                     break
                 Amplitude := (6.0 + ToFloat(Step) * 1.5) * Intensity
                 Roll := if (ModInt(Step, 2) = 0) then Amplitude else -Amplitude
                 ShakeRot := MakeRotationFromYawPitchRollDegrees(0.0, 0.0, Roll)
                 Prop.MoveTo(Base.Translation, ShakeRot, 0.07)
                 set Step += 1
-            Prop.MoveTo(Base.Translation, IdentityRotation(), 0.05)
+            if (Prop.IsValid[]):
+                Prop.MoveTo(Base.Translation, IdentityRotation(), 0.05)
 
     # Hatch step 5: the egg bursts (the prop disappears, VFX plays elsewhere).
     BurstIncubatorEgg(Index:int):void =

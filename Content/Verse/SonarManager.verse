@@ -23,8 +23,19 @@ RollSonarStock()<transacts>:[]int =
     set G.GlobalSonarStock = RollSonarStock()
     set G.SonarRestockEnd = G.GetNow() + SonarRestockSeconds
 
+# On join: keep the player's saved personal stock if it was rolled less than
+# one restock period ago, so leaving and rejoining cannot re-roll the shop.
 (G:sea_beast_game_device).InitSessionSonarStock(Session:player_session):void =
-    set Session.SonarStock = if (SharedSonarStock?) then G.GlobalSonarStock else RollSonarStock()
+    if (SharedSonarStock?):
+        return
+    P := Session.Profile
+    Age := GetSecondsSinceEpoch() - P.SonarStockEpoch
+    if (P.SonarStock.Length <> SonarTierCount or P.SonarStockEpoch <= 0.0 or Age < 0.0 or Age >= SonarRestockSeconds):
+        G.RollSessionSonarStock(Session)
+
+(G:sea_beast_game_device).RollSessionSonarStock(Session:player_session):void =
+    set Session.Profile.SonarStock = RollSonarStock()
+    set Session.Profile.SonarStockEpoch = GetSecondsSinceEpoch()
 
 (G:sea_beast_game_device).GetSonarRestockRemaining()<transacts>:float =
     MaxF(0.0, G.SonarRestockEnd - G.GetNow())
@@ -35,13 +46,15 @@ RollSonarStock()<transacts>:[]int =
         set G.GlobalSonarStock = RollSonarStock()
         set G.SonarRestockEnd = G.GetNow() + SonarRestockSeconds
         for (Player -> Session : G.Sessions, Session.Loaded?):
-            G.InitSessionSonarStock(Session)
+            if (not SharedSonarStock?):
+                G.RollSessionSonarStock(Session)
             G.RunSonarAutoBuy(Session)
             Session.UI.RefreshOpenMenu()
+            G.SaveSession(Session)
         LogSea("Sonar Shack restocked.")
 
 (G:sea_beast_game_device).GetSonarStock(Session:player_session, Tier:int)<transacts>:int =
-    Source := if (SharedSonarStock?) then G.GlobalSonarStock else Session.SonarStock
+    Source := if (SharedSonarStock?) then G.GlobalSonarStock else Session.Profile.SonarStock
     if (Count := Source[Tier]) then Count else 0
 
 (G:sea_beast_game_device).BuySonar(Session:player_session, Tier:int):void =
@@ -67,7 +80,7 @@ RollSonarStock()<transacts>:[]int =
     if (SharedSonarStock?):
         if (Old := G.GlobalSonarStock[Tier], set G.GlobalSonarStock[Tier] = Old - 1) {}
     else:
-        if (Old := Session.SonarStock[Tier], set Session.SonarStock[Tier] = Old - 1) {}
+        if (Old := Session.Profile.SonarStock[Tier], set Session.Profile.SonarStock[Tier] = Old - 1) {}
     if (Owned := Session.Profile.SonarInventory[Tier], set Session.Profile.SonarInventory[Tier] = Owned + 1) {}
 
 # ---------------------------------------------------------------- Auto-Buy -
@@ -133,7 +146,14 @@ RollSonarStock()<transacts>:[]int =
         if (Owned <= 0):
             G.ShowToast(Session, "YOU HAVE NO {Def.Name}. VISIT FINN AT THE SONAR SHACK!", ThemeWarning)
             return
+        if (Session.ActiveSonarTier = Tier):
+            G.ShowToast(Session, "YOUR {Def.Name} IS ALREADY TRACKING.", ThemeMuted)
+            return
         if (Target := G.FindSonarTarget[Session, Tier]):
+            # Switching to another tier replaces the running sonar (its charge
+            # was spent when it started).
+            if (Session.ActiveSonarTier >= 0):
+                G.StopSonar(Session, false)
             if (set Session.Profile.SonarInventory[Tier] = Owned - 1) {}
             set Session.ActiveSonarTier = Tier
             set Session.SonarTargetUID = Target.UID
