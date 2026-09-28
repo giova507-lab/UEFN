@@ -390,6 +390,20 @@ def check_callbacks(project, report):
                     report(rel, lineno, "extension method '%s' passed as a callback - forward it from a class method" % m.group(1))
 
 
+def check_import_collisions(project, exports, report):
+    """A module-level definition of this project may not have the same name
+    as a definition that one of the files imports with `using` (the name
+    would be ambiguous there)."""
+    ours = project.module_names | project.types
+    for path, text in project.files.items():
+        rel = os.path.basename(path)
+        usings = set(u.strip() for u in re.findall(r"using\s*\{\s*([^}]+?)\s*\}", text))
+        usings.add("/Verse.org/Verse")
+        for u in sorted(usings):
+            for name in sorted(exports.get(u, set()) & ours):
+                report(rel, 0, "'%s' is defined in this project and also imported from %s" % (name, u))
+
+
 def check(project, digest_names, report, exports=None):
     check_member_collisions(project, report)
     check_member_shadowing(project, report)
@@ -397,6 +411,7 @@ def check(project, digest_names, report, exports=None):
     if exports:
         check_shadowing(project, exports, report)
         check_type_imports(project, exports, report)
+        check_import_collisions(project, exports, report)
     known_calls = project.module_names | digest_names | BUILTINS | project.types
     device_members = project.members["sea_beast_game_device"] | project.ext["sea_beast_game_device"]
     ui_members = project.members["player_ui_controller"] | project.ext["player_ui_controller"]

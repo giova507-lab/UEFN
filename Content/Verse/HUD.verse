@@ -18,6 +18,8 @@ using { /UnrealEngine.com/Temporary/SpatialMath }
 HudToastSlots : int = 3
 SonarBarWidth : float = 520.0
 SonarMarkerSize : float = 22.0
+# How long the "+$X" income popup stays under the cash counter.
+IncomePopupSeconds : float = 1.2
 
 hud_view := class:
     var Root : canvas = canvas{}
@@ -48,6 +50,8 @@ hud_view := class:
     var AnnouncementExpire : float = 0.0
     var BigLabel : text_block = text_block{}
     var BigExpire : float = 0.0
+    var IncomePopupLabel : text_block = text_block{}
+    var IncomePopupExpire : float = 0.0
     # Tutorial.
     var TutorialRoot : overlay = overlay{}
     var TutorialStepLabel : text_block = text_block{}
@@ -77,6 +81,7 @@ hud_view := class:
         set ToastExpire = for (I := 0..HudToastSlots - 1). 0.0
         set AnnouncementLabel = MakeCenteredLabel("", 34.0, ThemeCyan)
         set BigLabel = MakeCenteredLabel("", 44.0, ThemeWhite)
+        set IncomePopupLabel = MakeLabel("", 26.0, ThemeCash)
         set TutorialStepLabel = MakeLabel("", 14.0, ThemeMuted)
         set TutorialTitleLabel = MakeLabel("", 24.0, ThemeGold)
         set TutorialHintLabel = MakeLabel("", 16.0, ThemePearl)
@@ -100,6 +105,7 @@ hud_view := class:
         set Root = canvas:
             Slots := array:
                 AnchoredSlot(TopLeft, 0.0, 0.0, 36.0, 120.0, 0.0, 0.0)
+                AnchoredSlot(IncomePopupLabel, 0.0, 0.0, 52.0, 244.0, 0.0, 0.0)
                 AnchoredSlot(TopCenter, 0.5, 0.0, 0.0, 16.0, 0.5, 0.0)
                 AnchoredSlot(MakePanel(MenuHintLabel, ThemeNavyDark, 0.45, 10.0), 1.0, 0.32, -24.0, 0.0, 1.0, 0.0)
                 AnchoredSlot(BottomCenter, 0.5, 1.0, 0.0, -170.0, 0.5, 1.0)
@@ -187,6 +193,11 @@ hud_view := class:
         BigLabel.SetTextColor(TextColor)
         set BigExpire = Now + 3.0
 
+    # Income feedback: a short "+$X" under the cash counter.
+    ShowIncomePopup(Text:string, Now:float):void =
+        SetLabel(IncomePopupLabel, Text)
+        set IncomePopupExpire = Now + IncomePopupSeconds
+
     ExpireMessages(Now:float):void =
         for (I -> Label : ToastLabels, Expire := ToastExpire[I], Expire > 0.0, Now >= Expire):
             SetLabel(Label, "")
@@ -197,6 +208,9 @@ hud_view := class:
         if (BigExpire > 0.0, Now >= BigExpire):
             SetLabel(BigLabel, "")
             set BigExpire = 0.0
+        if (IncomePopupExpire > 0.0, Now >= IncomePopupExpire):
+            SetLabel(IncomePopupLabel, "")
+            set IncomePopupExpire = 0.0
 
     ShowTutorial(Title:string, Hint:string, Step:int, Total:int):void =
         TutorialRoot.SetVisibility(widget_visibility.Visible)

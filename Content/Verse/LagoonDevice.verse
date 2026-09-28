@@ -219,6 +219,7 @@ lagoon_device := class(creative_device):
     SetHatchLuckText(Text:string):void = HatchLuckSign.SetText(ToMessage(Text))
     SetDeepDiveText(Text:string):void = DeepDiveSign.SetText(ToMessage(Text))
     SetHatchLuckCostText(Cost:string):void = HatchLuckButton.SetInteractionText(UpgradePrompt(Cost))
+    SetHatchLuckMaxText(Text:string):void = HatchLuckMaxButton.SetInteractionText(ToMessage("BUY {Text}"))
 
     SetIncubatorPrompt(Index:int, Prompt:message):void =
         if (Setup := Incubators[Index]):
@@ -448,4 +449,5 @@ lagoon_device := class(creative_device):
             SetIncubatorTimer(I, "")
             SetIncubatorPrompt(I, EmptyIncubatorPrompt)
         HatchLuckButton.SetInteractionText(HatchLuckIdlePrompt)
+        HatchLuckMaxButton.SetInteractionText(UpgradeMaxPrompt)
         SetOwnerSign(false, "")

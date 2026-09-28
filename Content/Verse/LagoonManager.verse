@@ -111,8 +111,13 @@ NoPlayer()<computes>:?player = false
         Next := HatchLuckForUpgrades(P.HatchLuckUpgrades + 1)
         Cost := HatchLuckUpgradeCost(P.HatchLuckUpgrades)
         Step := HatchLuckCycleStep(P.HatchLuckUpgrades)
-        Lagoon.SetHatchLuckText("HATCH LUCK\n{FormatMultiplier(Current)} > {FormatMultiplier(Next)}\n{Step - 1}/5  {FormatCash(Cost)}")
+        MaxInfo := G.HatchLuckMaxPurchase(Session)
+        MaxCount := MaxInfo(0)
+        MaxTotal := FormatCash(MaxInfo(1))
+        MaxLine := if (MaxCount > 0) then "MAX +{MaxCount}  {MaxTotal}" else "MAX: NOT ENOUGH CASH"
+        Lagoon.SetHatchLuckText("HATCH LUCK\n{FormatMultiplier(Current)} > {FormatMultiplier(Next)}\n{Step - 1}/5  {FormatCash(Cost)}\n{MaxLine}")
         Lagoon.SetHatchLuckCostText(FormatCash(Cost))
+        Lagoon.SetHatchLuckMaxText(MaxLine)
 
 (G:sea_beast_game_device).RefreshDeepDiveSign(Session:player_session):void =
     if (Lagoon := G.GetLagoonForSession[Session]):

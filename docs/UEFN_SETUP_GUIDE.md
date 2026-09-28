@@ -95,7 +95,7 @@ Default local layout (cm):
 |---|---|
 | `NameSign` | Billboard. Verse writes `PLAYER'S LAGOON` (and the equipped title) or `AVAILABLE LAGOON`. |
 | `IncomeSign` | Billboard with income per second. |
-| `HatchLuckSign` | Billboard: `590.0x > 595.0x  4/5  $539,545`-style upgrade board. |
+| `HatchLuckSign` | Billboard with four lines: `HATCH LUCK`, `590.0x > 595.0x`, `4/5  $539,545` (cycle step and next price), and `MAX +12  $3.4M` (what BUY MAX would buy right now). |
 | `DeepDiveSign` | Billboard: next Deep Dive requirement. |
 | `HatchLuckButton` | Button: buy one Hatch Luck upgrade. |
 | `HatchLuckMaxButton` | Button: buy as many as the player can afford. |

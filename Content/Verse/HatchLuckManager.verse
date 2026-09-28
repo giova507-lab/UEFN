@@ -9,6 +9,22 @@ using { /Verse.org/Simulation }
 # Safety cap for a single "buy max" press.
 HatchLuckMaxPurchasesPerPress : int = 1000
 
+# (upgrades a BUY MAX press would buy right now, their total price), using the
+# same price formula and per-press cap as TryUpgradeHatchLuck.
+(G:sea_beast_game_device).HatchLuckMaxPurchase(Session:player_session)<transacts>:tuple(int, float) =
+    P := Session.Profile
+    var Count : int = 0
+    var Total : float = 0.0
+    loop:
+        if (Count >= HatchLuckMaxPurchasesPerPress):
+            break
+        Next := HatchLuckUpgradeCost(P.HatchLuckUpgrades + Count)
+        if (Total + Next > P.Cash):
+            break
+        set Total += Next
+        set Count += 1
+    (Count, Total)
+
 (G:sea_beast_game_device).TryUpgradeHatchLuck(Session:player_session, BuyMax:logic):void =
     P := Session.Profile
     var Bought : int = 0

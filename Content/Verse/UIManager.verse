@@ -183,6 +183,9 @@ player_ui_controller := class:
     ShowToast(Text:string, TextColor:color):void =
         Hud.PushToast(Text, TextColor, Game.GetNow())
 
+    ShowIncomePopup(Amount:float):void =
+        Hud.ShowIncomePopup("+{FormatCash(Amount)}", Game.GetNow())
+
     ShowAnnouncement(Text:message, TextColor:color):void =
         Hud.ShowAnnouncement(Text, TextColor, Game.GetNow())
 

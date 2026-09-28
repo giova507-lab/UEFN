@@ -39,16 +39,22 @@ using { /Verse.org/Simulation }
     EventModifier := if (IncludeTemporary?) then G.CurrentIncomeModifier() else 1.0
     Base * Permanent * Friend * EventModifier
 
+# Every N economy ticks the HUD pops the income earned since the last pop.
+IncomePopupEveryTicks : int = 3
+
 (G:sea_beast_game_device).RunEconomyLoop()<suspends>:void =
     var TickCount : int = 0
     loop:
         Sleep(EconomyTickSeconds)
         set TickCount += 1
+        ShowPopups := logic{ModInt(TickCount, IncomePopupEveryTicks) = 0}
         for (Player -> Session : G.Sessions, Session.Loaded?):
             set Session.FriendBoost = G.ComputeFriendBoost(Session)
             Income := G.ComputeIncomePerSecond(Session, true)
             set Session.LastIncomePerSecond = Income
             G.AddCash(Session, Income * EconomyTickSeconds)
+            if (ShowPopups?, Income > 0.0):
+                Session.UI.ShowIncomePopup(Income * EconomyTickSeconds * ToFloat(IncomePopupEveryTicks))
             # Lagoon income signs are refreshed every 5 ticks.
             if (ModInt(TickCount, 5) = 0):
                 G.RefreshLagoonSigns(Session)

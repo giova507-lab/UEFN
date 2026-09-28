@@ -31,10 +31,10 @@ Use DEV → CLEAR SAVE DATA, then rejoin.
 | A19 | Result card | Name, rarity, stats and a "new discovery" note; it is added to the inventory. |
 | A20 | Tutorial 8 | "FASTER BEASTS CAN REACH RARER EGGS!", then the tutorial completes. Total time is under 5 min. |
 | A21 | Lagoon display | The new creature swims in the Lagoon pool. |
-| A22 | Income | Cash rises every second; the income sign updates. |
+| A22 | Income | Cash rises every second; a "+$X" popup appears under the cash counter every 3 s; the income sign updates. |
 | A23 | Hatch Luck button | Cost $25; Luck goes 1.0x → 2.0x; the board shows `1/5`. |
 | A24 | Five upgrades | The fifth adds +5 (cycle +1,+1,+1,+1,+5). |
-| A25 | BUY MAX | Buys as many as affordable; cash never goes negative. |
+| A25 | BUY MAX | The board's `MAX +N  $X` line matches what the press buys and charges; cash never goes negative. |
 | A26 | Hold Reload → SEA BEASTS | Menu opens; cards, filters and sorts work; RIDE / PLACE / REMOVE / FEED / LOCK / SELL buttons are there. |
 | A27 | PLACE BEST | Slots fill with the highest-income creatures. |
 | A28 | Close the menu | Input mode is released and the player can move and aim normally. |
