@@ -156,6 +156,91 @@ def collect_module_exports(digest_dir):
     return exports
 
 
+def collect_digest_extensions(digest_dir):
+    """Returns (extension method name -> module paths, member names defined
+    inside digest classes). An extension method needs its module's `using`
+    at the call site; a class member does not."""
+    ext = defaultdict(set)
+    class_members = set()
+    if not digest_dir:
+        return ext, class_members
+    for fn in os.listdir(digest_dir):
+        if not fn.endswith(".verse"):
+            continue
+        root = next((v for k, v in DIGEST_ROOTS.items() if fn.startswith(k)), None)
+        if root is None:
+            continue
+        stack = []
+        for raw in read(os.path.join(digest_dir, fn)).split("\n"):
+            s = raw.rstrip()
+            stripped = s.strip()
+            if not stripped or stripped.startswith("#") or stripped.startswith("@"):
+                continue
+            indent = len(s) - len(s.lstrip(" "))
+            while stack and indent <= stack[-1][0]:
+                stack.pop()
+            if stripped.startswith("}"):
+                continue
+            m = re.match(r"^\s*(?:\(/[^)]*:\))?(" + IDENT + r")<public>\s*:=\s*module\s*\{", s)
+            if m:
+                parent = stack[-1][1] if stack else root
+                stack.append((indent, parent + "/" + m.group(1)))
+                continue
+            if not stack:
+                continue
+            em = re.match(r"^\(" + IDENT + r"\s*:[^)]*(?:\([^()]*\))?[^)]*\)\.(?:\(/[^)]*:\))?(" + IDENT + r")\s*<", stripped)
+            if indent == stack[-1][0] + 2 and em:
+                ext[em.group(1)].add(stack[-1][1])
+            elif indent > stack[-1][0] + 2:
+                mm = re.match(r"^(?:var(?:<[a-z_]+>)?\s+)?(?:\(/[^)]*:\))?(" + IDENT + r")\s*<", stripped)
+                if mm:
+                    class_members.add(mm.group(1))
+    return ext, class_members
+
+
+def check_value_imports(project, exports, digest_ext, digest_members, report):
+    """Every free function / constant and every extension method a file uses
+    must come from this project or from a module the file imports."""
+    owners = defaultdict(set)
+    for module, names in exports.items():
+        for n in names:
+            owners[n].add(module)
+    project_ext = set()
+    for names in project.ext.values():
+        project_ext |= names
+    defined = project.module_names | project.types | project.enum_values | project.all_members
+    for path, text in project.files.items():
+        rel = os.path.basename(path)
+        usings = set(u.strip() for u in re.findall(r"using\s*\{\s*([^}]+?)\s*\}", text))
+        usings.add("/Verse.org/Verse")
+        clean_lines = [strip_comments_and_strings(l) for l in text.split("\n")]
+        local_names = set()
+        for l in clean_lines:
+            local_names |= set(re.findall(r"(" + IDENT + r")\s*:=", l))
+            local_names |= set(re.findall(r"[\(,]\s*(" + IDENT + r")\s*:\s*[\[\]?A-Za-z_(]", l))
+            local_names |= set(re.findall(r"(" + IDENT + r")\s*->", l))
+            local_names |= set(re.findall(r"var\s+(" + IDENT + r")\s*:", l))
+        seen = set()
+        for lineno, line in enumerate(clean_lines, 1):
+            if line.strip().startswith("using"):
+                continue
+            line = re.sub(r"\(/[^)]*:\)" + IDENT, " ", line)  # qualified refs
+            for m in re.finditer(r"\.(" + IDENT + r")\s*[\(\[]", line):
+                n = m.group(1)
+                if n in project_ext or n in project.all_members or n in digest_members or n not in digest_ext:
+                    continue
+                if not (digest_ext[n] & usings) and ("ext", n) not in seen:
+                    seen.add(("ext", n))
+                    report(rel, lineno, "extension method '.%s' needs using { %s }" % (n, sorted(digest_ext[n])[0]))
+            for m in re.finditer(r"(?<![\w.'])(" + IDENT + r")\b", line):
+                n = m.group(1)
+                if n in defined or n in local_names or n not in owners:
+                    continue
+                if not (owners[n] & usings) and ("bare", n) not in seen:
+                    seen.add(("bare", n))
+                    report(rel, lineno, "'%s' needs using { %s }" % (n, sorted(owners[n])[0]))
+
+
 def split_params(text):
     """Parameter names from the text inside a signature's parentheses."""
     names, depth, current = [], 0, ""
@@ -404,7 +489,7 @@ def check_import_collisions(project, exports, report):
                 report(rel, 0, "'%s' is defined in this project and also imported from %s" % (name, u))
 
 
-def check(project, digest_names, report, exports=None):
+def check(project, digest_names, report, exports=None, digest_ext=None, digest_members=None):
     check_member_collisions(project, report)
     check_member_shadowing(project, report)
     check_callbacks(project, report)
@@ -412,6 +497,7 @@ def check(project, digest_names, report, exports=None):
         check_shadowing(project, exports, report)
         check_type_imports(project, exports, report)
         check_import_collisions(project, exports, report)
+        check_value_imports(project, exports, digest_ext or {}, digest_members or set(), report)
     known_calls = project.module_names | digest_names | BUILTINS | project.types
     device_members = project.members["sea_beast_game_device"] | project.ext["sea_beast_game_device"]
     ui_members = project.members["player_ui_controller"] | project.ext["player_ui_controller"]
@@ -502,12 +588,13 @@ def main():
     project = Project(files)
     digest_names = collect_digest_names(args.digests)
     exports = collect_module_exports(args.digests)
+    digest_ext, digest_members = collect_digest_extensions(args.digests)
     findings = []
 
     def report(file, line, message):
         findings.append((file, line, message))
 
-    check(project, digest_names, report, exports)
+    check(project, digest_names, report, exports, digest_ext, digest_members)
     for f, l, m in findings:
         print("%s:%d: %s" % (f, l, m))
     print("%d finding(s) in %d file(s)" % (len(findings), len(files)))

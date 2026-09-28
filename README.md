@@ -65,7 +65,7 @@ python3 Tools/verse_effects_check.py --digests <folder with *.digest.verse> Cont
 
 `verse_check.py` looks for:
 
-* unknown members and missing `using`s (types are checked against each digest module's exports);
+* unknown members and missing `using`s for types, free functions, constants and extension methods (checked against each digest module's exports);
 * shadowing, meaning parameters, locals or loop variables that reuse a visible name or a member of their class;
 * extension methods passed as callbacks;
 * indentation problems.
